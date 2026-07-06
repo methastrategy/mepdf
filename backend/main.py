@@ -40,7 +40,7 @@ MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 MB
 
 # ─── Frontend ───────────────────────────────────────────────────────────────
 
-frontend_path = Path(__file__).parent.parent / "frontend"
+frontend_path = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
 
 
