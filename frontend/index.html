@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mePDF</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="/static/js/tool-form.js" defer></script>
+</head>
+<body>
+
+  <!-- ─── Navigation ─── -->
+  <header class="nav">
+    <div class="nav-brand">
+      <span class="nav-logo">📄</span>
+      <span class="nav-title">mePDF</span>
+      <span class="nav-tagline">personal PDF toolbox</span>
+    </div>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu">☰</button>
+  </header>
+
+  <div class="app-layout">
+
+    <!-- ─── Sidebar ─── -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <span class="sidebar-label">Tools</span>
+      </div>
+      <a href="#" class="sidebar-item active"
+         hx-get="/tool/merge"
+         hx-target="#main-content"
+         hx-trigger="click"
+         hx-indicator="#main-spinner"
+         data-tool="merge"
+         onclick="setActive(this)">
+        <span class="item-icon">⊞</span> Merge
+      </a>
+      <a href="#" class="sidebar-item"
+         hx-get="/tool/split"
+         hx-target="#main-content"
+         hx-trigger="click"
+         hx-indicator="#main-spinner"
+         data-tool="split"
+         onclick="setActive(this)">
+        <span class="item-icon">⊟</span> Split
+      </a>
+      <a href="#" class="sidebar-item"
+         hx-get="/tool/compress"
+         hx-target="#main-content"
+         hx-trigger="click"
+         hx-indicator="#main-spinner"
+         data-tool="compress"
+         onclick="setActive(this)">
+        <span class="item-icon">▼</span> Compress
+      </a>
+      <a href="#" class="sidebar-item"
+         hx-get="/tool/rotate"
+         hx-target="#main-content"
+         hx-trigger="click"
+         hx-indicator="#main-spinner"
+         data-tool="rotate"
+         onclick="setActive(this)">
+        <span class="item-icon">↻</span> Rotate
+      </a>
+      <a href="#" class="sidebar-item"
+         hx-get="/tool/extract-text"
+         hx-target="#main-content"
+         hx-trigger="click"
+         hx-indicator="#main-spinner"
+         data-tool="extract-text"
+         onclick="setActive(this)">
+        <span class="item-icon">Aa</span> Extract Text
+      </a>
+      <a href="#" class="sidebar-item"
+         hx-get="/tool/pdf-to-images"
+         hx-target="#main-content"
+         hx-trigger="click"
+         hx-indicator="#main-spinner"
+         data-tool="pdf-to-images"
+         onclick="setActive(this)">
+        <span class="item-icon">🖼</span> PDF → Images
+      </a>
+      <a href="#" class="sidebar-item"
+         hx-get="/tool/images-to-pdf"
+         hx-target="#main-content"
+         hx-trigger="click"
+         hx-indicator="#main-spinner"
+         data-tool="images-to-pdf"
+         onclick="setActive(this)">
+        <span class="item-icon">📋</span> Images → PDF
+      </a>
+
+      <div class="sidebar-footer">
+        <span class="version">v1.0.0</span>
+      </div>
+    </nav>
+
+    <!-- ─── Main Content ─── -->
+    <main class="main-content" id="main-content">
+
+      <!-- Landing / Welcome -->
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">📄</div>
+        <h1>mePDF</h1>
+        <p class="welcome-sub">Your personal PDF toolbox — 7 tools, no ads, no upload to cloud.</p>
+        <div class="welcome-cards">
+          <div class="welcome-card" onclick="switchTool('merge')">
+            <span class="card-icon">⊞</span>
+            <span class="card-title">Merge</span>
+            <span class="card-desc">Combine PDFs</span>
+          </div>
+          <div class="welcome-card" onclick="switchTool('split')">
+            <span class="card-icon">⊟</span>
+            <span class="card-title">Split</span>
+            <span class="card-desc">Extract pages</span>
+          </div>
+          <div class="welcome-card" onclick="switchTool('compress')">
+            <span class="card-icon">▼</span>
+            <span class="card-title">Compress</span>
+            <span class="card-desc">Reduce size</span>
+          </div>
+          <div class="welcome-card" onclick="switchTool('rotate')">
+            <span class="card-icon">↻</span>
+            <span class="card-title">Rotate</span>
+            <span class="card-desc">Orient pages</span>
+          </div>
+          <div class="welcome-card" onclick="switchTool('extract-text')">
+            <span class="card-icon">Aa</span>
+            <span class="card-title">Extract Text</span>
+            <span class="card-desc">PDF → .txt</span>
+          </div>
+          <div class="welcome-card" onclick="switchTool('pdf-to-images')">
+            <span class="card-icon">🖼</span>
+            <span class="card-title">PDF → Images</span>
+            <span class="card-desc">Pages as PNG</span>
+          </div>
+          <div class="welcome-card" onclick="switchTool('images-to-pdf')">
+            <span class="card-icon">📋</span>
+            <span class="card-title">Images → PDF</span>
+            <span class="card-desc">Photos to PDF</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spinner for HTMX loads -->
+      <div id="main-spinner" class="htmx-indicator spinner-large">
+        <div class="spinner-ring"></div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
