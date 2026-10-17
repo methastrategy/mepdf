@@ -33,6 +33,7 @@ export interface CompressionResult {
   originalSize: number;
   compressedSize: number;
   ratio: number; // e.g. 0.45 = 45% of original
+  ineffective?: boolean;
 }
 
 export interface ProgressInfo {

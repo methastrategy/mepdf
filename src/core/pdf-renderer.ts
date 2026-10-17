@@ -9,14 +9,29 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 const thumbnailCache = new Map<string, string>();
 
 /**
- * Loads a PDF document from raw byte array
+ * Loads a PDF document from raw byte array, optionally with a password
  */
-export async function loadPdfDocument(data: Uint8Array): Promise<pdfjsLib.PDFDocumentProxy> {
+export async function loadPdfDocument(
+  data: Uint8Array,
+  password?: string
+): Promise<pdfjsLib.PDFDocumentProxy> {
   const loadingTask = pdfjsLib.getDocument({
     data,
     useSystemFonts: true,
+    password,
   });
   return await loadingTask.promise;
+}
+
+/**
+ * Explicitly releases PDF.js document resources, font caches, and worker memory
+ */
+export async function destroyPdfDocument(pdfDoc: pdfjsLib.PDFDocumentProxy): Promise<void> {
+  try {
+    await pdfDoc.destroy();
+  } catch (err) {
+    console.warn('PDFDocument destroy error:', err);
+  }
 }
 
 /**
@@ -30,53 +45,57 @@ export async function renderPageThumbnail(
   cacheKeyPrefix?: string
 ): Promise<{ dataUrl: string; width: number; height: number }> {
   const page = await pdfDoc.getPage(pageNumber);
-  const finalRotation = (page.rotate + rotation) % 360;
+  try {
+    const finalRotation = (page.rotate + rotation) % 360;
 
-  const cacheKey = cacheKeyPrefix ? `${cacheKeyPrefix}-p${pageNumber}-r${finalRotation}-w${targetWidth}` : null;
-  if (cacheKey && thumbnailCache.has(cacheKey)) {
-    const cached = thumbnailCache.get(cacheKey)!;
-    const vp = page.getViewport({ scale: 1, rotation: finalRotation });
-    return { dataUrl: cached, width: vp.width, height: vp.height };
+    const cacheKey = cacheKeyPrefix ? `${cacheKeyPrefix}-p${pageNumber}-r${finalRotation}-w${targetWidth}` : null;
+    if (cacheKey && thumbnailCache.has(cacheKey)) {
+      const cached = thumbnailCache.get(cacheKey)!;
+      const vp = page.getViewport({ scale: 1, rotation: finalRotation });
+      return { dataUrl: cached, width: vp.width, height: vp.height };
+    }
+
+    const originalViewport = page.getViewport({ scale: 1, rotation: finalRotation });
+    const scale = targetWidth / originalViewport.width;
+    const viewport = page.getViewport({ scale, rotation: finalRotation });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.floor(viewport.width));
+    canvas.height = Math.max(1, Math.floor(viewport.height));
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Unable to create 2D canvas context');
+
+    // Fill crisp white background behind transparent PDF pages
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const renderContext = {
+      canvasContext: ctx,
+      viewport,
+    };
+
+    const renderTask = page.render(renderContext);
+    await renderTask.promise;
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+    // Release canvas buffer memory
+    canvas.width = 0;
+    canvas.height = 0;
+
+    if (cacheKey) {
+      thumbnailCache.set(cacheKey, dataUrl);
+    }
+
+    return {
+      dataUrl,
+      width: originalViewport.width,
+      height: originalViewport.height,
+    };
+  } finally {
+    page.cleanup();
   }
-
-  const originalViewport = page.getViewport({ scale: 1, rotation: finalRotation });
-  const scale = targetWidth / originalViewport.width;
-  const viewport = page.getViewport({ scale, rotation: finalRotation });
-
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.floor(viewport.width));
-  canvas.height = Math.max(1, Math.floor(viewport.height));
-
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) throw new Error('Unable to create 2D canvas context');
-
-  // Fill crisp white background behind transparent PDF pages
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const renderContext = {
-    canvasContext: ctx,
-    viewport,
-  };
-
-  const renderTask = page.render(renderContext);
-  await renderTask.promise;
-
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-  // Release canvas buffer memory
-  canvas.width = 0;
-  canvas.height = 0;
-
-  if (cacheKey) {
-    thumbnailCache.set(cacheKey, dataUrl);
-  }
-
-  return {
-    dataUrl,
-    width: originalViewport.width,
-    height: originalViewport.height,
-  };
 }
 
 /**
@@ -89,26 +108,30 @@ export async function renderPageToCanvas(
   additionalRotation = 0
 ): Promise<HTMLCanvasElement> {
   const page = await pdfDoc.getPage(pageNumber);
-  const finalRotation = (page.rotate + additionalRotation) % 360;
-  const viewport = page.getViewport({ scale, rotation: finalRotation });
+  try {
+    const finalRotation = (page.rotate + additionalRotation) % 360;
+    const viewport = page.getViewport({ scale, rotation: finalRotation });
 
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.floor(viewport.width));
-  canvas.height = Math.max(1, Math.floor(viewport.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.floor(viewport.width));
+    canvas.height = Math.max(1, Math.floor(viewport.height));
 
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) throw new Error('Unable to create 2D canvas context');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Unable to create 2D canvas context');
 
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const renderTask = page.render({
-    canvasContext: ctx,
-    viewport,
-  });
-  await renderTask.promise;
+    const renderTask = page.render({
+      canvasContext: ctx,
+      viewport,
+    });
+    await renderTask.promise;
 
-  return canvas;
+    return canvas;
+  } finally {
+    page.cleanup();
+  }
 }
 
 /**
@@ -122,8 +145,9 @@ export async function extractTextFromDoc(
   const pagesOutput: string[] = [];
 
   for (let i = 1; i <= total; i++) {
+    let page: pdfjsLib.PDFPageProxy | null = null;
     try {
-      const page = await pdfDoc.getPage(i);
+      page = await pdfDoc.getPage(i);
       const content = await page.getTextContent();
       const pageLines: string[] = [];
       let currentY: number | null = null;
@@ -156,6 +180,8 @@ export async function extractTextFromDoc(
       pagesOutput.push(`=== Page ${i} / ${total} ===\n` + (pageText || '[No selectable text on this page]'));
     } catch {
       pagesOutput.push(`=== Page ${i} / ${total} ===\n[Error reading text on page ${i}]`);
+    } finally {
+      page?.cleanup();
     }
 
     if (onProgress) {
@@ -176,4 +202,22 @@ export async function extractTextFromDoc(
  */
 export function clearThumbnailCache(): void {
   thumbnailCache.clear();
+}
+
+/**
+ * Prunes thumbnail cache for a specific document ID
+ */
+export function removeDocThumbnails(docId: string): void {
+  for (const key of thumbnailCache.keys()) {
+    if (key.startsWith(docId)) {
+      thumbnailCache.delete(key);
+    }
+  }
+}
+
+/**
+ * Returns current thumbnail cache entry count
+ */
+export function getThumbnailCacheSize(): number {
+  return thumbnailCache.size;
 }

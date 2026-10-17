@@ -346,6 +346,7 @@ button, input, select, textarea {
 .page-card.selected {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--primary);
+  background: color-mix(in oklab, var(--primary) 12%, var(--surface-base));
 }
 
 .page-card.dragging {
@@ -379,6 +380,25 @@ button, input, select, textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.doc-badge {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  background: var(--surface-overlay);
+  padding: 0.12rem 0.35rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  max-width: 75px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-seq-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .page-select-checkbox {
@@ -419,6 +439,7 @@ button, input, select, textarea {
   min-height: 240px;
   position: relative;
   cursor: grab;
+  overflow: hidden;
 }
 
 .page-thumbnail-box:active {
@@ -469,6 +490,22 @@ button, input, select, textarea {
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-spring);
+  position: relative;
+  min-width: 28px;
+  min-height: 28px;
+}
+
+/* 44px accessible touch target */
+.page-action-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
 }
 
 .page-action-btn:hover {
@@ -808,9 +845,20 @@ button, input, select, textarea {
   .workspace-main {
     padding: 0.75rem;
   }
+  .workspace-toolbar {
+    top: 116px; /* Accounts for wrapped 2-row navbar */
+  }
   .pages-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.75rem;
+  }
+  .page-card-footer {
+    padding: 0.45rem 0.5rem;
+  }
+  .page-action-btn {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0.45rem 0.55rem;
   }
   .preset-selector {
     grid-template-columns: 1fr;

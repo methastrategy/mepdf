@@ -152,6 +152,17 @@ export class Toolbar {
       }
     }
 
+    if (this.selectAllBtn) {
+      const isAllSelected = selectedCount === totalPages && totalPages > 0;
+      this.selectAllBtn.disabled = totalPages === 0;
+      this.selectAllBtn.innerHTML = `
+        <i data-lucide="${isAllSelected ? 'square' : 'check-square'}" style="width: 15px; height: 15px;"></i>
+        <span>${isAllSelected ? 'Deselect All' : 'Select All'}</span>
+      `;
+      this.selectAllBtn.title = isAllSelected ? 'Deselect all pages' : 'Select all pages';
+      this.refreshIcons();
+    }
+
     if (this.deleteBtn) {
       this.deleteBtn.disabled = selectedCount === 0;
       this.deleteBtn.style.opacity = selectedCount === 0 ? '0.5' : '1';

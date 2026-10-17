@@ -16,7 +16,13 @@ import {
 import { registerSW } from 'virtual:pwa-register';
 
 import type { PDFPageItem, DocumentMetadata } from './core/types';
-import { loadPdfDocument, renderPageThumbnail } from './core/pdf-renderer';
+import {
+  loadPdfDocument,
+  renderPageThumbnail,
+  destroyPdfDocument,
+  clearThumbnailCache,
+  removeDocThumbnails,
+} from './core/pdf-renderer';
 import { mergePages, imagesToPdf } from './core/pdf-operations';
 import { readFileAsUint8Array, downloadBytes } from './utils/file-utils';
 import { Toolbar } from './components/Toolbar';
@@ -159,6 +165,11 @@ class MePdfApp {
         await this.handleFiles(Array.from(this.fileInput.files));
         this.fileInput.value = '';
       }
+    });
+
+    this.fileInput.addEventListener('cancel', () => {
+      this.pendingAction = null;
+      this.resetNavTabToStudio();
     });
 
     // Window drag & drop
@@ -316,48 +327,74 @@ class MePdfApp {
         const bytes = await readFileAsUint8Array(file);
 
         progressOverlay.show(`Loading ${file.name}...`);
-        const pdfDoc = await loadPdfDocument(bytes);
-        const pageCount = pdfDoc.numPages;
+        let pdfDoc;
+        try {
+          pdfDoc = await loadPdfDocument(bytes);
+        } catch (err: unknown) {
+          const isPassword =
+            (err && typeof err === 'object' && 'name' in err && (err as { name?: string }).name === 'PasswordException') ||
+            (err instanceof Error && /password/i.test(err.message));
+          if (isPassword) {
+            progressOverlay.hide();
+            const password = await new Promise<string>((resolve, reject) => {
+              modal.showPasswordPromptModal(
+                file.name,
+                (pwd) => resolve(pwd),
+                () => reject(new Error('Password prompt cancelled'))
+              );
+            });
+            progressOverlay.show(`Unlocking ${file.name}...`);
+            pdfDoc = await loadPdfDocument(bytes, password);
+          } else {
+            throw err;
+          }
+        }
 
-        this.documents.set(docId, {
-          id: docId,
-          filename: file.name,
-          size: file.size,
-          pageCount,
-          fileBytes: bytes,
-        });
+        try {
+          const pageCount = pdfDoc.numPages;
 
-        // Render thumbnails for each page
-        for (let pNum = 1; pNum <= pageCount; pNum++) {
-          progressOverlay.update({
-            stage: `Rendering thumbnails for ${file.name}`,
-            current: pNum,
-            total: pageCount,
-            percent: Math.round((pNum / pageCount) * 100),
+          this.documents.set(docId, {
+            id: docId,
+            filename: file.name,
+            size: file.size,
+            pageCount,
+            fileBytes: bytes,
           });
 
-          const { dataUrl, width, height } = await renderPageThumbnail(
-            pdfDoc,
-            pNum,
-            0,
-            320,
-            docId
-          );
+          // Render thumbnails for each page
+          for (let pNum = 1; pNum <= pageCount; pNum++) {
+            progressOverlay.update({
+              stage: `Rendering thumbnails for ${file.name}`,
+              current: pNum,
+              total: pageCount,
+              percent: Math.round((pNum / pageCount) * 100),
+            });
 
-          const pageItem: PDFPageItem = {
-            id: `${docId}_p${pNum}`,
-            docId,
-            docName: file.name,
-            pageIndex: pNum - 1,
-            displayPageNumber: pNum,
-            rotation: 0,
-            thumbnailDataUrl: dataUrl,
-            width,
-            height,
-            selected: false,
-          };
+            const { dataUrl, width, height } = await renderPageThumbnail(
+              pdfDoc,
+              pNum,
+              0,
+              320,
+              docId
+            );
 
-          this.pages.push(pageItem);
+            const pageItem: PDFPageItem = {
+              id: `${docId}_p${pNum}`,
+              docId,
+              docName: file.name,
+              pageIndex: pNum - 1,
+              displayPageNumber: pNum,
+              rotation: 0,
+              thumbnailDataUrl: dataUrl,
+              width,
+              height,
+              selected: false,
+            };
+
+            this.pages.push(pageItem);
+          }
+        } finally {
+          await destroyPdfDocument(pdfDoc);
         }
       }
 
@@ -472,8 +509,19 @@ class MePdfApp {
     }
   }
 
+  private pruneUnusedDocuments(): void {
+    const activeDocIds = new Set(this.pages.map((p) => p.docId));
+    for (const docId of this.documents.keys()) {
+      if (!activeDocIds.has(docId)) {
+        this.documents.delete(docId);
+        removeDocThumbnails(docId);
+      }
+    }
+  }
+
   private deleteSinglePage(pageId: string): void {
     this.pages = this.pages.filter((p) => p.id !== pageId);
+    this.pruneUnusedDocuments();
     toast.show('Page removed', 'info');
     this.updateUI();
   }
@@ -483,6 +531,7 @@ class MePdfApp {
     if (selectedCount === 0) return;
 
     this.pages = this.pages.filter((p) => !p.selected);
+    this.pruneUnusedDocuments();
     toast.show(`Removed ${selectedCount} ${selectedCount === 1 ? 'page' : 'pages'}`, 'info');
     this.updateUI();
   }
@@ -498,12 +547,19 @@ class MePdfApp {
 
   private clearAll(): void {
     if (this.pages.length === 0) return;
-    if (confirm('Are you sure you want to clear all pages from the workspace?')) {
-      this.pages = [];
-      this.documents.clear();
-      this.updateUI();
-      toast.show('Workspace cleared', 'info');
-    }
+    modal.showConfirmModal(
+      'Clear Workspace',
+      'Are you sure you want to clear all pages from the workspace? All uploaded documents and edits will be removed.',
+      () => {
+        this.pages = [];
+        this.documents.clear();
+        clearThumbnailCache();
+        this.updateUI();
+        toast.show('Workspace cleared', 'info');
+      },
+      'Clear All',
+      true
+    );
   }
 
   // ==========================================
@@ -522,7 +578,15 @@ class MePdfApp {
       });
       progressOverlay.hide();
 
-      downloadBytes(mergedBytes, 'mepdf_export.pdf');
+      let exportFilename = 'mepdf_merged.pdf';
+      if (this.documents.size === 1) {
+        const doc = this.documents.values().next().value;
+        if (doc?.filename) {
+          exportFilename = `${doc.filename.replace(/\.pdf$/i, '')}_edited.pdf`;
+        }
+      }
+
+      downloadBytes(mergedBytes, exportFilename);
       toast.show(`Exported ${this.pages.length} pages successfully!`, 'success');
     } catch (err: unknown) {
       progressOverlay.hide();
@@ -572,15 +636,38 @@ class MePdfApp {
   // ==========================================
   // TOP NAV TAB ACTIONS
   // ==========================================
+  private setActiveNavTab(tabName: string): void {
+    const tabBtns = this.appEl.querySelectorAll<HTMLButtonElement>('.nav-tab-btn');
+    tabBtns.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+    });
+  }
+
+  private resetNavTabToStudio(): void {
+    this.setActiveNavTab('studio');
+  }
+
   private async handleTabSwitch(tab: string | null): Promise<void> {
     if (!tab) return;
 
     if (tab === 'studio') {
+      this.setActiveNavTab('studio');
       return;
     }
 
     if (tab === 'img2pdf') {
-      modal.showImagesToPdfModal();
+      this.setActiveNavTab('img2pdf');
+      modal.setOnClose(() => this.resetNavTabToStudio());
+      modal.showImagesToPdfModal(async (imageFiles, pageSize) => {
+        progressOverlay.show('Converting images to PDF...');
+        const convertedBytes = await imagesToPdf(imageFiles, { pageSize });
+        progressOverlay.hide();
+        const virtualFile = new File([convertedBytes as unknown as BlobPart], 'Images_Studio.pdf', {
+          type: 'application/pdf',
+        });
+        await this.handleFiles([virtualFile]);
+        toast.show(`Added ${imageFiles.length} images to Visual Studio!`, 'success');
+      });
       return;
     }
 
@@ -594,6 +681,8 @@ class MePdfApp {
 
     try {
       const { docBytes, docName } = await this.getActiveDocumentBytes();
+      this.setActiveNavTab(tab);
+      modal.setOnClose(() => this.resetNavTabToStudio());
 
       if (tab === 'compress') {
         modal.showCompressModal(docBytes, docName);
@@ -603,6 +692,7 @@ class MePdfApp {
         await modal.showExtractTextModal(docBytes, docName);
       }
     } catch (err: unknown) {
+      this.resetNavTabToStudio();
       progressOverlay.hide();
       const msg = err instanceof Error ? err.message : String(err);
       toast.show(`Failed to prepare document: ${msg}`, 'error');

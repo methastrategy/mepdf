@@ -49,8 +49,10 @@ export class VisualGrid {
     const rotation = page.rotation % 360;
     const rotationBadge = rotation !== 0 ? `<span class="rotation-tag">${rotation}°</span>` : '';
     const isTurned = rotation === 90 || rotation === 270;
-    const scale = isTurned && page.width > 0 && page.height > 0 
-      ? Math.min(1, page.width / page.height).toFixed(3) 
+    const minDim = Math.min(page.width, page.height);
+    const maxDim = Math.max(page.width, page.height);
+    const scale = isTurned && minDim > 0 && maxDim > 0 
+      ? (minDim / maxDim).toFixed(3) 
       : '1';
 
     const isFirst = index === 0;
@@ -67,9 +69,12 @@ export class VisualGrid {
             <input type="checkbox" class="page-select-checkbox" ${isSelected ? 'checked' : ''} data-page-id="${page.id}" />
             <span>P.${page.displayPageNumber}</span>
           </label>
-          <span style="font-size: 0.6875rem; color: var(--text-muted); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            #${index + 1}
-          </span>
+          <div style="display: flex; align-items: center; gap: 0.35rem; max-width: 120px;">
+            <span class="doc-badge" title="${escapeHtml(page.docName)}">
+              ${escapeHtml(page.docName)}
+            </span>
+            <span class="page-seq-badge">#${index + 1}</span>
+          </div>
         </div>
 
         <div class="page-thumbnail-box" title="Drag to reorder page">

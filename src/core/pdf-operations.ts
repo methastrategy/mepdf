@@ -7,7 +7,7 @@ import type {
   ExtractedImageItem,
   ProgressCallback,
 } from './types';
-import { loadPdfDocument, renderPageToCanvas, extractTextFromDoc } from './pdf-renderer';
+import { loadPdfDocument, renderPageToCanvas, extractTextFromDoc, destroyPdfDocument } from './pdf-renderer';
 
 /**
  * Merges a list of PDFPageItems (in their current display order and rotations)
@@ -36,7 +36,7 @@ export async function mergePages(
       if (!meta) {
         throw new Error(`Source document metadata not found for ID: ${item.docId}`);
       }
-      srcDoc = await PDFDocument.load(meta.fileBytes);
+      srcDoc = await PDFDocument.load(meta.fileBytes, { ignoreEncryption: true });
       parsedDocs.set(item.docId, srcDoc);
     }
 
@@ -184,7 +184,7 @@ async function embedViaCanvas(doc: PDFDocument, file: File): Promise<PDFImage> {
 
   if (typeof createImageBitmap === 'function') {
     try {
-      imgBitmap = await createImageBitmap(file);
+      imgBitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
       canvas = document.createElement('canvas');
       canvas.width = imgBitmap.width;
       canvas.height = imgBitmap.height;
@@ -192,7 +192,17 @@ async function embedViaCanvas(doc: PDFDocument, file: File): Promise<PDFImage> {
       if (!ctx) throw new Error('Could not create offscreen canvas');
       ctx.drawImage(imgBitmap, 0, 0);
     } catch {
-      canvas = null;
+      try {
+        imgBitmap = await createImageBitmap(file);
+        canvas = document.createElement('canvas');
+        canvas.width = imgBitmap.width;
+        canvas.height = imgBitmap.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not create offscreen canvas');
+        ctx.drawImage(imgBitmap, 0, 0);
+      } catch {
+        canvas = null;
+      }
     } finally {
       imgBitmap?.close();
     }
@@ -311,49 +321,53 @@ export async function pdfToImages(
   onProgress?: ProgressCallback
 ): Promise<ExtractedImageItem[]> {
   const pdfDoc = await loadPdfDocument(pdfBytes);
-  const total = pdfDoc.numPages;
-  const items: ExtractedImageItem[] = [];
-  const scale = dpi / 72.0;
+  try {
+    const total = pdfDoc.numPages;
+    const items: ExtractedImageItem[] = [];
+    const scale = dpi / 72.0;
 
-  for (let i = 1; i <= total; i++) {
-    const canvas = await renderPageToCanvas(pdfDoc, i, scale);
-    const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-    const quality = format === 'jpeg' ? 0.9 : undefined;
+    for (let i = 1; i <= total; i++) {
+      const canvas = await renderPageToCanvas(pdfDoc, i, scale);
+      const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+      const quality = format === 'jpeg' ? 0.9 : undefined;
 
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error('Failed to create page blob'))),
-        mimeType,
-        quality
-      );
-    });
-
-    const ext = format === 'jpeg' ? 'jpg' : 'png';
-    const numStr = String(i).padStart(3, '0');
-    items.push({
-      name: `page_${numStr}.${ext}`,
-      blob,
-      dataUrl: canvas.toDataURL(mimeType, quality),
-      pageNumber: i,
-      width: canvas.width,
-      height: canvas.height,
-    });
-
-    // Release canvas memory buffer immediately
-    canvas.width = 0;
-    canvas.height = 0;
-
-    if (onProgress) {
-      onProgress({
-        stage: 'Rendering pages to images',
-        current: i,
-        total,
-        percent: Math.round((i / total) * 100),
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('Failed to create page blob'))),
+          mimeType,
+          quality
+        );
       });
-    }
-  }
 
-  return items;
+      const ext = format === 'jpeg' ? 'jpg' : 'png';
+      const numStr = String(i).padStart(3, '0');
+      items.push({
+        name: `page_${numStr}.${ext}`,
+        blob,
+        dataUrl: canvas.toDataURL(mimeType, quality),
+        pageNumber: i,
+        width: canvas.width,
+        height: canvas.height,
+      });
+
+      // Release canvas memory buffer immediately
+      canvas.width = 0;
+      canvas.height = 0;
+
+      if (onProgress) {
+        onProgress({
+          stage: 'Rendering pages to images',
+          current: i,
+          total,
+          percent: Math.round((i / total) * 100),
+        });
+      }
+    }
+
+    return items;
+  } finally {
+    await destroyPdfDocument(pdfDoc);
+  }
 }
 
 /**
@@ -392,5 +406,9 @@ export async function extractText(
   onProgress?: ProgressCallback
 ): Promise<string> {
   const pdfDoc = await loadPdfDocument(pdfBytes);
-  return await extractTextFromDoc(pdfDoc, onProgress);
+  try {
+    return await extractTextFromDoc(pdfDoc, onProgress);
+  } finally {
+    await destroyPdfDocument(pdfDoc);
+  }
 }

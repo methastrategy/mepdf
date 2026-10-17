@@ -1,4 +1,18 @@
-import { createIcons, X, Copy, Check, Download, FileText, Minimize2, Scissors, Image } from 'lucide';
+import {
+  createIcons,
+  X,
+  Copy,
+  Check,
+  Download,
+  FileText,
+  Minimize2,
+  Scissors,
+  Image,
+  AlertTriangle,
+  Lock,
+  Unlock,
+  Layers,
+} from 'lucide';
 import JSZip from 'jszip';
 import { formatBytes, downloadBytes, downloadBlob, escapeHtml } from '../utils/file-utils';
 import { COMPRESSION_PRESETS, compressPdf } from '../core/pdf-compressor';
@@ -14,55 +28,81 @@ import { toast } from './Toast';
 import { progressOverlay } from './ProgressOverlay';
 import type { PDFPageItem, DocumentMetadata, CompressionPreset } from '../core/types';
 
+/**
+ * Returns an intuitive default split range expression based on page count
+ */
+export function getDefaultSplitRange(totalPages: number): string {
+  if (totalPages <= 1) return '1';
+  if (totalPages === 2) return '1, 2';
+  const mid = Math.floor(totalPages / 2);
+  const firstPart = mid === 1 ? '1' : `1-${mid}`;
+  const secondPart = mid + 1 === totalPages ? `${totalPages}` : `${mid + 1}-${totalPages}`;
+  return `${firstPart}, ${secondPart}`;
+}
+
 export class ModalManager {
-  private overlay: HTMLElement;
-  private headerTitle: HTMLElement;
-  private bodyContent: HTMLElement;
-  private footerActions: HTMLElement;
-  private closeBtn: HTMLButtonElement;
+  private overlay!: HTMLElement;
+  private headerTitle!: HTMLElement;
+  private bodyContent!: HTMLElement;
+  private footerActions!: HTMLElement;
+  private closeBtn!: HTMLButtonElement;
+  private onCloseCallback: (() => void) | null = null;
 
   constructor() {
-    let el = document.querySelector<HTMLElement>('#app-modal-overlay');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'app-modal-overlay';
-      el.className = 'modal-overlay';
-      el.innerHTML = `
-        <div class="modal-card">
-          <div class="modal-header">
-            <h3 class="modal-title" id="modal-header-title">Modal</h3>
-            <button class="btn btn-ghost btn-icon-only" id="modal-close-btn" title="Close">
-              <i data-lucide="x" style="width: 18px; height: 18px;"></i>
-            </button>
+    this.ensureElements();
+  }
+
+  private ensureElements(): boolean {
+    if (typeof document === 'undefined') return false;
+    if (!this.overlay) {
+      let el = document.querySelector<HTMLElement>('#app-modal-overlay');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'app-modal-overlay';
+        el.className = 'modal-overlay';
+        el.innerHTML = `
+          <div class="modal-card">
+            <div class="modal-header">
+              <h3 class="modal-title" id="modal-header-title">Modal</h3>
+              <button class="btn btn-ghost btn-icon-only" id="modal-close-btn" title="Close">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+              </button>
+            </div>
+            <div class="modal-body" id="modal-body-content"></div>
+            <div class="modal-footer" id="modal-footer-actions"></div>
           </div>
-          <div class="modal-body" id="modal-body-content"></div>
-          <div class="modal-footer" id="modal-footer-actions"></div>
-        </div>
-      `;
-      document.body.appendChild(el);
-    }
-
-    this.overlay = el;
-    this.headerTitle = el.querySelector('#modal-header-title')!;
-    this.bodyContent = el.querySelector('#modal-body-content')!;
-    this.footerActions = el.querySelector('#modal-footer-actions')!;
-    this.closeBtn = el.querySelector('#modal-close-btn')!;
-
-    this.closeBtn.addEventListener('click', () => this.close());
-    this.overlay.addEventListener('click', (e) => {
-      if (e.target === this.overlay) this.close();
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.overlay.classList.contains('active')) {
-        this.close();
+        `;
+        document.body.appendChild(el);
       }
-    });
 
-    this.refreshIcons();
+      this.overlay = el;
+      this.headerTitle = el.querySelector('#modal-header-title')!;
+      this.bodyContent = el.querySelector('#modal-body-content')!;
+      this.footerActions = el.querySelector('#modal-footer-actions')!;
+      this.closeBtn = el.querySelector('#modal-close-btn')!;
+
+      this.closeBtn.addEventListener('click', () => this.close());
+      this.overlay.addEventListener('click', (e) => {
+        if (e.target === this.overlay) this.close();
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.overlay?.classList.contains('active')) {
+          this.close();
+        }
+      });
+
+      this.refreshIcons();
+    }
+    return true;
+  }
+
+  setOnClose(cb: (() => void) | null): void {
+    this.onCloseCallback = cb;
   }
 
   open(title: string, bodyHtml: string, footerHtml: string): void {
+    if (!this.ensureElements()) return;
     this.headerTitle.innerHTML = title;
     this.bodyContent.innerHTML = bodyHtml;
     this.footerActions.innerHTML = footerHtml;
@@ -71,12 +111,33 @@ export class ModalManager {
   }
 
   close(): void {
-    this.overlay.classList.remove('active');
+    if (this.overlay) {
+      this.overlay.classList.remove('active');
+    }
+    if (this.onCloseCallback) {
+      const cb = this.onCloseCallback;
+      this.onCloseCallback = null;
+      cb();
+    }
   }
 
   private refreshIcons(): void {
+    if (typeof document === 'undefined') return;
     createIcons({
-      icons: { X, Copy, Check, Download, FileText, Minimize2, Scissors, Image },
+      icons: {
+        X,
+        Copy,
+        Check,
+        Download,
+        FileText,
+        Minimize2,
+        Scissors,
+        Image,
+        AlertTriangle,
+        Lock,
+        Unlock,
+        Layers,
+      },
       nameAttr: 'data-lucide',
     });
   }
@@ -210,7 +271,7 @@ export class ModalManager {
           const savedBytes = result.originalSize - result.compressedSize;
           const savedPercent = Math.round((1 - result.ratio) * 100);
 
-          if (savedPercent > 0) {
+          if (savedPercent > 0 && !result.ineffective) {
             resultSize.textContent = `${formatBytes(result.compressedSize)} (-${savedPercent}%)`;
             if (estLabel) {
               estLabel.innerHTML = `Saved <strong style="color: var(--success);">${formatBytes(savedBytes)}</strong> (${savedPercent}% smaller)`;
@@ -218,7 +279,7 @@ export class ModalManager {
           } else {
             resultSize.textContent = `${formatBytes(result.compressedSize)} (Optimal)`;
             if (estLabel) {
-              estLabel.textContent = 'File is already well-optimized';
+              estLabel.innerHTML = `<span style="color: var(--warning, #eab308);">File is already well-optimized (no further reduction possible)</span>`;
             }
           }
         }
@@ -272,7 +333,7 @@ export class ModalManager {
 
       <div class="form-group" id="split-range-group" style="display: none;">
         <label class="form-label">Page Ranges</label>
-        <input type="text" class="form-input" id="split-range-input" placeholder="e.g. 1-2, 3-5, 6" value="1-${Math.min(2, totalPages)}, ${Math.min(3, totalPages)}-${totalPages}" />
+        <input type="text" class="form-input" id="split-range-input" placeholder="e.g. 1-2, 3-5, 6" value="${getDefaultSplitRange(totalPages)}" />
         <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
           Specify page ranges separated by commas (Total pages: ${totalPages}).
         </div>
@@ -417,7 +478,9 @@ export class ModalManager {
   // ==========================================
   // IMAGES TO PDF MODAL
   // ==========================================
-  showImagesToPdfModal(): void {
+  showImagesToPdfModal(
+    onAddToStudio?: (files: File[], pageSize: 'A4' | 'fit') => Promise<void>
+  ): void {
     const title = `<i data-lucide="image" style="width: 18px; height: 18px; color: var(--primary);"></i> Convert Images to PDF`;
     const bodyHtml = `
       <div class="form-group">
@@ -438,6 +501,10 @@ export class ModalManager {
 
     const footerHtml = `
       <button class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+      <button class="btn btn-secondary" id="modal-add-to-studio-btn" disabled>
+        <i data-lucide="layers" style="width: 16px; height: 16px;"></i>
+        <span>Add to Visual Studio</span>
+      </button>
       <button class="btn btn-primary" id="modal-convert-img2pdf-btn" disabled>
         <i data-lucide="download" style="width: 16px; height: 16px;"></i>
         <span>Create PDF</span>
@@ -450,6 +517,7 @@ export class ModalManager {
     const sizeSelect = this.bodyContent.querySelector<HTMLSelectElement>('#img2pdf-pagesize-select')!;
     const fileListEl = this.bodyContent.querySelector<HTMLElement>('#img2pdf-file-list')!;
     const convertBtn = this.footerActions.querySelector<HTMLButtonElement>('#modal-convert-img2pdf-btn')!;
+    const addToStudioBtn = this.footerActions.querySelector<HTMLButtonElement>('#modal-add-to-studio-btn')!;
 
     let selectedFiles: File[] = [];
 
@@ -460,14 +528,34 @@ export class ModalManager {
           .map((f, i) => `<div>${i + 1}. ${escapeHtml(f.name)} (${formatBytes(f.size)})</div>`)
           .join('');
         convertBtn.disabled = false;
+        addToStudioBtn.disabled = false;
       } else {
         selectedFiles = [];
         fileListEl.innerHTML = '';
         convertBtn.disabled = true;
+        addToStudioBtn.disabled = true;
       }
     });
 
     this.footerActions.querySelector('#modal-cancel-btn')?.addEventListener('click', () => this.close());
+
+    addToStudioBtn.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+      try {
+        addToStudioBtn.disabled = true;
+        convertBtn.disabled = true;
+        const pageSize = sizeSelect.value as 'A4' | 'fit';
+        if (onAddToStudio) {
+          await onAddToStudio(selectedFiles, pageSize);
+        }
+        this.close();
+      } catch (err: unknown) {
+        addToStudioBtn.disabled = false;
+        convertBtn.disabled = false;
+        const msg = err instanceof Error ? err.message : String(err);
+        toast.show(`Failed to add images: ${msg}`, 'error');
+      }
+    });
 
     convertBtn.addEventListener('click', async () => {
       if (selectedFiles.length === 0) return;
@@ -486,6 +574,98 @@ export class ModalManager {
         progressOverlay.hide();
         const msg = err instanceof Error ? err.message : String(err);
         toast.show(`Image conversion failed: ${msg}`, 'error');
+      }
+    });
+  }
+
+  // ==========================================
+  // CONFIRMATION MODAL
+  // ==========================================
+  showConfirmModal(
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    confirmText = 'Confirm',
+    isDanger = false
+  ): void {
+    const modalTitle = `<i data-lucide="alert-triangle" style="width: 18px; height: 18px; color: ${isDanger ? 'var(--danger)' : 'var(--primary)'};"></i> ${escapeHtml(title)}`;
+    const bodyHtml = `
+      <div style="font-size: 0.9375rem; color: var(--text-primary); line-height: 1.6;">
+        ${escapeHtml(message)}
+      </div>
+    `;
+    const footerHtml = `
+      <button class="btn btn-secondary" id="confirm-modal-cancel-btn">Cancel</button>
+      <button class="btn ${isDanger ? 'btn-danger' : 'btn-primary'}" id="confirm-modal-ok-btn">
+        <span>${escapeHtml(confirmText)}</span>
+      </button>
+    `;
+
+    this.open(modalTitle, bodyHtml, footerHtml);
+
+    this.footerActions.querySelector('#confirm-modal-cancel-btn')?.addEventListener('click', () => this.close());
+    this.footerActions.querySelector('#confirm-modal-ok-btn')?.addEventListener('click', () => {
+      this.close();
+      onConfirm();
+    });
+  }
+
+  // ==========================================
+  // PASSWORD PROMPT MODAL
+  // ==========================================
+  showPasswordPromptModal(
+    filename: string,
+    onSubmit: (password: string) => void,
+    onCancel?: () => void
+  ): void {
+    const title = `<i data-lucide="lock" style="width: 18px; height: 18px; color: var(--primary);"></i> Password Required`;
+    const bodyHtml = `
+      <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5;">
+        <strong>${escapeHtml(filename)}</strong> is password protected. Enter the password to unlock it.
+      </div>
+      <div class="form-group" style="margin-top: 0.75rem;">
+        <label class="form-label" for="pdf-password-input">Password</label>
+        <input type="password" class="form-input" id="pdf-password-input" placeholder="Enter password" autofocus />
+        <div id="pdf-password-error" style="color: var(--danger); font-size: 0.75rem; display: none; margin-top: 0.25rem;"></div>
+      </div>
+    `;
+    const footerHtml = `
+      <button class="btn btn-secondary" id="modal-password-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="modal-password-submit-btn">
+        <i data-lucide="unlock" style="width: 16px; height: 16px;"></i>
+        <span>Unlock Document</span>
+      </button>
+    `;
+
+    this.open(title, bodyHtml, footerHtml);
+
+    const pwdInput = this.bodyContent.querySelector<HTMLInputElement>('#pdf-password-input')!;
+    pwdInput.focus();
+
+    const handleCancel = () => {
+      this.close();
+      onCancel?.();
+    };
+
+    const handleSubmit = () => {
+      const val = pwdInput.value;
+      if (!val) {
+        const errEl = this.bodyContent.querySelector<HTMLElement>('#pdf-password-error');
+        if (errEl) {
+          errEl.textContent = 'Please enter a password';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+      this.close();
+      onSubmit(val);
+    };
+
+    this.footerActions.querySelector('#modal-password-cancel-btn')?.addEventListener('click', handleCancel);
+    this.footerActions.querySelector('#modal-password-submit-btn')?.addEventListener('click', handleSubmit);
+    pwdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        handleSubmit();
       }
     });
   }
