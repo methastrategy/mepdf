@@ -245,6 +245,73 @@ describe('mePDF v2.0.2 Hardening Suite', () => {
       expect(overlay.innerHTML).toContain('aria-modal="true"');
       expect(overlay.innerHTML).toContain('aria-labelledby="modal-header-title"');
     });
+
+    it('accurately tracks isOpen() state when opened and closed', () => {
+      setupMockDOM();
+      const modal = new ModalManager();
+      expect(modal.isOpen()).toBe(false);
+      modal.open('Title', '<div>Body</div>', '<button>OK</button>');
+      expect(modal.isOpen()).toBe(true);
+      modal.close();
+      expect(modal.isOpen()).toBe(false);
+    });
+
+    it('prevents concurrent double submit on password prompt when Enter is pressed rapidly', async () => {
+      const { elements, createMockEl } = setupMockDOM();
+      const modal = new ModalManager();
+
+      const pwdInput = createMockEl('input', 'pdf-password-input');
+      pwdInput.value = 'mypass';
+      elements['#pdf-password-input'] = pwdInput;
+      elements['#pdf-password-error'] = createMockEl('div', 'pdf-password-error');
+      elements['#modal-password-cancel-btn'] = createMockEl('button', 'modal-password-cancel-btn');
+      const submitBtn = createMockEl('button', 'modal-password-submit-btn');
+      elements['#modal-password-submit-btn'] = submitBtn;
+
+      let submitCalls = 0;
+      let resolveSubmit: (val: any) => void;
+      const deferredSubmit = new Promise((resolve) => {
+        resolveSubmit = resolve;
+      });
+
+      modal.showPasswordPromptModal(
+        'doc.pdf',
+        async () => {
+          submitCalls++;
+          await deferredSubmit;
+          return true;
+        }
+      );
+
+      // Trigger first submission via Enter key
+      const enterEvt = { key: 'Enter' };
+      pwdInput.eventListeners['keydown']?.[0]?.(enterEvt);
+
+      // Trigger second submission rapidly while first is in-flight
+      pwdInput.eventListeners['keydown']?.[0]?.(enterEvt);
+
+      expect(submitCalls).toBe(1); // Second call blocked by isSubmitting
+
+      resolveSubmit!(true);
+      await Promise.resolve();
+    });
+
+    it('calls registered onCloseCallback if text extraction fails before modal open', async () => {
+      setupMockDOM();
+      const modal = new ModalManager();
+      let closeCalled = false;
+      modal.setOnClose(() => {
+        closeCalled = true;
+      });
+
+      const fakeBytes = new Uint8Array();
+      vi.spyOn(pdfRenderer, 'loadPdfDocument').mockRejectedValueOnce(new Error('Corrupted PDF bytes'));
+
+      await modal.showExtractTextModal(fakeBytes, 'corrupt.pdf');
+
+      expect(closeCalled).toBe(true);
+      expect(modal.isOpen()).toBe(false);
+    });
   });
 
   describe('ToastManager Action Buttons', () => {
@@ -313,6 +380,72 @@ describe('mePDF v2.0.2 Hardening Suite', () => {
       actionBtn.eventListeners['click']?.[0]?.(clickEvt);
       expect(clickEvt.stopPropagation).toHaveBeenCalled();
       expect(actionFired).toBe(true);
+    });
+
+    it('pauses auto-dismiss on mouseenter and restarts on mouseleave', () => {
+      vi.useFakeTimers();
+      const createdElements: any[] = [];
+      const mockDoc: any = {
+        createElement: (tag: string) => {
+          const el: any = {
+            tagName: tag.toUpperCase(),
+            className: '',
+            textContent: '',
+            style: {},
+            attributes: {} as Record<string, string>,
+            setAttribute(k: string, v: string) { this.attributes[k] = v; },
+            getAttribute(k: string) { return this.attributes[k]; },
+            children: [] as any[],
+            appendChild(child: any) {
+              this.children.push(child);
+              child.parentElement = this;
+              return child;
+            },
+            removeChild(child: any) {
+              this.children = this.children.filter((c: any) => c !== child);
+              child.parentElement = null;
+              return child;
+            },
+            eventListeners: {} as Record<string, Function[]>,
+            addEventListener(evt: string, cb: Function) {
+              if (!this.eventListeners[evt]) this.eventListeners[evt] = [];
+              this.eventListeners[evt].push(cb);
+            },
+          };
+          createdElements.push(el);
+          return el;
+        },
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        body: {
+          appendChild: vi.fn(),
+        },
+      };
+
+      (globalThis as any).document = mockDoc;
+      const toastManager = new ToastManager();
+
+      toastManager.showAction('Page removed', 'Undo', () => {}, 6000);
+      const toastEl = createdElements.find((el) => el.className.includes('toast-action'));
+      expect(toastEl).toBeDefined();
+
+      // Advance 4000ms
+      vi.advanceTimersByTime(4000);
+
+      // User hovers
+      toastEl.eventListeners['mouseenter']?.[0]?.();
+
+      // Advance 10000ms (would have dismissed if not paused)
+      vi.advanceTimersByTime(10000);
+      expect(toastEl.parentElement).not.toBeNull();
+
+      // User leaves
+      toastEl.eventListeners['mouseleave']?.[0]?.();
+
+      // Advance 3000ms (covers 2500ms grace period + 200ms fade transition)
+      vi.advanceTimersByTime(3000);
+      expect(toastEl.parentElement).toBeNull();
+      vi.useRealTimers();
     });
   });
 
@@ -437,6 +570,74 @@ describe('mePDF v2.0.2 Hardening Suite', () => {
       expect(dropEvt.stopPropagation).toHaveBeenCalled();
       expect(onFilesDropped).toHaveBeenCalledWith([fakeFile]);
     });
+
+    it('does not toggle selection when clicking on page label or page-card-footer', () => {
+      const listeners: Record<string, Function[]> = {};
+      const mockCard: any = {
+        getAttribute: (attr: string) => (attr === 'data-page-id' ? 'p1' : '0'),
+        querySelector: () => null,
+        classList: { remove: vi.fn(), add: vi.fn() },
+        addEventListener: (evt: string, cb: Function) => {
+          if (!listeners[evt]) listeners[evt] = [];
+          listeners[evt].push(cb);
+        },
+      };
+
+      const container: any = {
+        innerHTML: '',
+        querySelectorAll: () => [mockCard],
+      };
+
+      const onToggleSelect = vi.fn();
+      const grid = new VisualGrid(container, {
+        onToggleSelect,
+        onRotatePage: vi.fn(),
+        onDeletePage: vi.fn(),
+        onReorder: vi.fn(),
+      });
+
+      const pages: PDFPageItem[] = [
+        {
+          id: 'p1',
+          docId: 'd1',
+          docName: 'doc.pdf',
+          pageIndex: 0,
+          displayPageNumber: 1,
+          rotation: 0,
+          thumbnailDataUrl: '',
+          width: 200,
+          height: 300,
+          selected: false,
+        },
+      ];
+
+      grid.setPages(pages);
+
+      const cardClickHandler = listeners['click']?.[0];
+      expect(cardClickHandler).toBeDefined();
+
+      // 1. Click on label (should not trigger card toggle because label handles checkbox change)
+      const labelSpan = {
+        closest: (sel: string) => (sel === 'label' ? {} : null),
+      };
+      cardClickHandler({ target: labelSpan });
+      expect(onToggleSelect).not.toHaveBeenCalled();
+
+      // 2. Click on footer background (should not trigger selection toggle)
+      const footerBg = {
+        closest: (sel: string) => (sel === '.page-card-footer' ? {} : null),
+      };
+      cardClickHandler({ target: footerBg });
+      expect(onToggleSelect).not.toHaveBeenCalled();
+
+      // 3. Click on thumbnail (valid card selection trigger)
+      const thumbnailImg = {
+        closest: () => null,
+      };
+      cardClickHandler({ target: thumbnailImg });
+      expect(onToggleSelect).toHaveBeenCalledTimes(1);
+      expect(onToggleSelect).toHaveBeenCalledWith('p1');
+    });
   });
 
   describe('Undo Deletion State Restoration Invariants', () => {
@@ -532,6 +733,52 @@ describe('mePDF v2.0.2 Hardening Suite', () => {
 
       expect(pages).toHaveLength(3);
       expect(pages.map((p) => p.id)).toEqual(['a1', 'a2', 'b1']);
+    });
+
+    it('supports multi-tier LIFO sequential undos with selected flag reset', () => {
+      const documents = new Map<string, DocumentMetadata>();
+      documents.set('docA', { id: 'docA', filename: 'A.pdf', size: 100, pageCount: 3, fileBytes: new Uint8Array() });
+
+      let pages: PDFPageItem[] = [
+        { id: 'p0', docId: 'docA', docName: 'A.pdf', pageIndex: 0, displayPageNumber: 1, rotation: 0, thumbnailDataUrl: '', width: 100, height: 100, selected: false },
+        { id: 'p1', docId: 'docA', docName: 'A.pdf', pageIndex: 1, displayPageNumber: 2, rotation: 0, thumbnailDataUrl: '', width: 100, height: 100, selected: false },
+        { id: 'p2', docId: 'docA', docName: 'A.pdf', pageIndex: 2, displayPageNumber: 3, rotation: 0, thumbnailDataUrl: '', width: 100, height: 100, selected: false },
+      ];
+
+      const undoStack: Array<{ pages: { page: PDFPageItem; index: number }[]; documents: DocumentMetadata[] }> = [];
+
+      // Step 1: Delete p2 (index 2)
+      undoStack.push({
+        pages: [{ page: { ...pages[2]!, selected: false }, index: 2 }],
+        documents: [{ ...documents.get('docA')! }],
+      });
+      pages.splice(2, 1);
+      expect(pages.map((p) => p.id)).toEqual(['p0', 'p1']);
+
+      // Step 2: Delete p0 (index 0)
+      undoStack.push({
+        pages: [{ page: { ...pages[0]!, selected: false }, index: 0 }],
+        documents: [{ ...documents.get('docA')! }],
+      });
+      pages.splice(0, 1);
+      expect(pages.map((p) => p.id)).toEqual(['p1']);
+
+      // Step 3: First Undo (restores p0 at index 0)
+      const undo1 = undoStack.pop()!;
+      for (const { page, index } of undo1.pages) {
+        pages.splice(Math.min(Math.max(0, index), pages.length), 0, page);
+      }
+      expect(pages.map((p) => p.id)).toEqual(['p0', 'p1']);
+      expect(pages[0]?.selected).toBe(false);
+
+      // Step 4: Second Undo (restores p2 at index 2)
+      const undo2 = undoStack.pop()!;
+      for (const { page, index } of undo2.pages) {
+        pages.splice(Math.min(Math.max(0, index), pages.length), 0, page);
+      }
+      expect(pages.map((p) => p.id)).toEqual(['p0', 'p1', 'p2']);
+      expect(pages[2]?.selected).toBe(false);
+      expect(undoStack).toHaveLength(0);
     });
   });
 });

@@ -61,6 +61,10 @@ export class ProgressOverlay {
   hide(): void {
     this.overlay?.classList.remove('active');
   }
+
+  isOpen(): boolean {
+    return Boolean(this.overlay && this.overlay.classList.contains('active'));
+  }
 }
 
 export const progressOverlay = new ProgressOverlay();

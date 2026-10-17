@@ -40,10 +40,11 @@ class MePdfApp {
   private visualGrid: VisualGrid | null = null;
   private fileInput: HTMLInputElement;
   private pendingAction: string | null = null;
-  private lastDeletedState: {
+  private undoStack: Array<{
     pages: { page: PDFPageItem; index: number }[];
     documents: DocumentMetadata[];
-  } | null = null;
+  }> = [];
+  private activeUndoToast: { dismiss: () => void } | null = null;
 
   constructor() {
     this.appEl = document.querySelector<HTMLElement>('#app')!;
@@ -217,6 +218,9 @@ class MePdfApp {
 
     // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
+      // Inhibit all workspace keyboard shortcuts when a modal dialog or progress overlay is active
+      if (modal.isOpen() || progressOverlay.isOpen()) return;
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         this.exportCurrentDocument();
@@ -558,22 +562,34 @@ class MePdfApp {
     const deletedPage = this.pages[idx]!;
     const docMeta = this.documents.get(deletedPage.docId);
 
-    this.lastDeletedState = {
-      pages: [{ page: { ...deletedPage }, index: idx }],
+    // Dismiss previous undo toast if active
+    if (this.activeUndoToast) {
+      this.activeUndoToast.dismiss();
+      this.activeUndoToast = null;
+    }
+
+    this.undoStack.push({
+      pages: [{ page: { ...deletedPage, selected: false }, index: idx }],
       documents: docMeta ? [{ ...docMeta }] : [],
-    };
+    });
+    if (this.undoStack.length > 20) {
+      this.undoStack.shift();
+    }
 
     this.pages.splice(idx, 1);
     this.pruneUnusedDocuments();
     this.updateUI();
 
-    toast.showAction('Page removed', 'Undo', () => this.undoDelete());
+    this.activeUndoToast = toast.showAction('Page removed', 'Undo', () => this.undoDelete());
   }
 
   private deleteSelected(): void {
     const selectedPagesWithIndices = this.pages
-      .map((p, idx) => ({ page: { ...p }, index: idx }))
-      .filter((item) => item.page.selected);
+      .map((p, idx) => ({ page: { ...p, selected: false }, index: idx }))
+      .filter((item) => {
+        const orig = this.pages[item.index];
+        return orig && orig.selected;
+      });
 
     const selectedCount = selectedPagesWithIndices.length;
     if (selectedCount === 0) return;
@@ -583,16 +599,25 @@ class MePdfApp {
       .map((id) => this.documents.get(id))
       .filter((d): d is DocumentMetadata => Boolean(d));
 
-    this.lastDeletedState = {
+    // Dismiss previous undo toast if active
+    if (this.activeUndoToast) {
+      this.activeUndoToast.dismiss();
+      this.activeUndoToast = null;
+    }
+
+    this.undoStack.push({
       pages: selectedPagesWithIndices,
       documents: docsToKeep,
-    };
+    });
+    if (this.undoStack.length > 20) {
+      this.undoStack.shift();
+    }
 
     this.pages = this.pages.filter((p) => !p.selected);
     this.pruneUnusedDocuments();
     this.updateUI();
 
-    toast.showAction(
+    this.activeUndoToast = toast.showAction(
       `Removed ${selectedCount} ${selectedCount === 1 ? 'page' : 'pages'}`,
       'Undo',
       () => this.undoDelete()
@@ -600,9 +625,15 @@ class MePdfApp {
   }
 
   private undoDelete(): void {
-    if (!this.lastDeletedState || this.lastDeletedState.pages.length === 0) return;
+    if (this.activeUndoToast) {
+      this.activeUndoToast.dismiss();
+      this.activeUndoToast = null;
+    }
 
-    const { pages, documents } = this.lastDeletedState;
+    const state = this.undoStack.pop();
+    if (!state || state.pages.length === 0) return;
+
+    const { pages, documents } = state;
 
     // Restore document metadata if pruned
     for (const doc of documents) {
@@ -619,7 +650,6 @@ class MePdfApp {
     }
 
     const count = sorted.length;
-    this.lastDeletedState = null;
     this.updateUI();
     toast.show(`Restored ${count} ${count === 1 ? 'page' : 'pages'}!`, 'success');
   }
@@ -639,9 +669,13 @@ class MePdfApp {
       'Clear Workspace',
       'Are you sure you want to clear all pages from the workspace? All uploaded documents and edits will be removed.',
       () => {
+        if (this.activeUndoToast) {
+          this.activeUndoToast.dismiss();
+          this.activeUndoToast = null;
+        }
         this.pages = [];
         this.documents.clear();
-        this.lastDeletedState = null;
+        this.undoStack = [];
         clearThumbnailCache();
         this.updateUI();
         toast.show('Workspace cleared', 'info');

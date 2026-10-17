@@ -157,12 +157,14 @@ export class VisualGrid {
         this.events.onDeletePage(pageId);
       });
 
-      // Card click for selection toggle (when not clicking buttons or handles)
+      // Card click for selection toggle (when not clicking buttons, inputs, labels, footer, or handles)
       card.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
         if (
           target.closest('button') ||
           target.closest('input') ||
+          target.closest('label') ||
+          target.closest('.page-card-footer') ||
           target.closest('.page-drag-handle') ||
           target.closest('.page-action-btn')
         ) {

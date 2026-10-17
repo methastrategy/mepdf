@@ -101,9 +101,13 @@ export class ModalManager {
               'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
             )
           ).filter((node) => {
+            if (typeof (node as any).checkVisibility === 'function') {
+              return (node as any).checkVisibility();
+            }
             if (typeof window !== 'undefined' && 'getComputedStyle' in window) {
               const style = window.getComputedStyle(node);
               if (style.display === 'none' || style.visibility === 'hidden') return false;
+              if (node.offsetParent === null && style.position !== 'fixed') return false;
             }
             return true;
           });
@@ -135,6 +139,10 @@ export class ModalManager {
     return true;
   }
 
+  isOpen(): boolean {
+    return Boolean(this.overlay && this.overlay.classList.contains('active'));
+  }
+
   setOnClose(cb: (() => void) | null): void {
     this.onCloseCallback = cb;
   }
@@ -150,9 +158,14 @@ export class ModalManager {
 
     if (typeof requestAnimationFrame !== 'undefined') {
       requestAnimationFrame(() => {
-        const firstInput = this.bodyContent.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea');
-        if (firstInput) {
-          firstInput.focus();
+        const interactive = Array.from(
+          this.bodyContent.querySelectorAll<HTMLElement>('input:not([type="hidden"]), select, textarea')
+        ).find((el) => {
+          if (typeof (el as any).checkVisibility === 'function') return (el as any).checkVisibility();
+          return el.offsetParent !== null || el.style.display !== 'none';
+        });
+        if (interactive) {
+          interactive.focus();
         } else {
           const firstBtn = this.footerActions.querySelector<HTMLElement>('button:not([disabled])');
           firstBtn?.focus();
@@ -529,6 +542,7 @@ export class ModalManager {
       });
     } catch (err: unknown) {
       progressOverlay.hide();
+      this.close();
       const msg = err instanceof Error ? err.message : String(err);
       toast.show(`Text extraction failed: ${msg}`, 'error');
     }
@@ -678,6 +692,7 @@ export class ModalManager {
     onCancel?: () => void
   ): void {
     let settled = false;
+    let isSubmitting = false;
     const cancelAction = () => {
       if (settled) return;
       settled = true;
@@ -716,6 +731,7 @@ export class ModalManager {
     };
 
     const handleSubmit = async () => {
+      if (isSubmitting || settled) return;
       const val = pwdInput.value;
       const errEl = this.bodyContent.querySelector<HTMLElement>('#pdf-password-error');
       if (!val) {
@@ -726,6 +742,7 @@ export class ModalManager {
         return;
       }
 
+      isSubmitting = true;
       const submitBtn = this.footerActions.querySelector<HTMLButtonElement>('#modal-password-submit-btn');
       if (submitBtn) submitBtn.disabled = true;
 
@@ -746,6 +763,8 @@ export class ModalManager {
         }
         pwdInput.select();
         pwdInput.focus();
+      } finally {
+        isSubmitting = false;
       }
     };
 

@@ -86,6 +86,21 @@ export class ToastManager {
     toast.appendChild(actionBtn);
     container.appendChild(toast);
 
+    toast.addEventListener('mouseenter', () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    });
+
+    toast.addEventListener('mouseleave', () => {
+      if (!dismissed && !timer) {
+        timer = setTimeout(() => {
+          dismiss();
+        }, 2500);
+      }
+    });
+
     timer = setTimeout(() => {
       dismiss();
     }, duration);
