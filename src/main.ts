@@ -9,9 +9,11 @@ import {
   FileText,
   Upload,
   Download,
+  DownloadCloud,
   ShieldCheck,
   Plus,
 } from 'lucide';
+import { registerSW } from 'virtual:pwa-register';
 
 import type { PDFPageItem, DocumentMetadata } from './core/types';
 import { loadPdfDocument, renderPageThumbnail } from './core/pdf-renderer';
@@ -80,6 +82,10 @@ class MePdfApp {
         </nav>
 
         <div class="nav-actions">
+          <button class="btn btn-secondary" id="nav-install-btn" style="display: none;" title="Install mePDF Application">
+            <i data-lucide="download-cloud" style="width: 15px; height: 15px;"></i>
+            <span>Install App</span>
+          </button>
           <button class="btn btn-primary" id="nav-export-btn" title="Save & Export PDF (Ctrl+S)">
             <i data-lucide="download" style="width: 16px; height: 16px;"></i>
             <span id="nav-export-label">Export PDF</span>
@@ -127,6 +133,7 @@ class MePdfApp {
         FileText,
         Upload,
         Download,
+        DownloadCloud,
         ShieldCheck,
         Plus,
       },
@@ -206,6 +213,42 @@ class MePdfApp {
           this.deleteSelected();
         }
       }
+    });
+
+    // PWA Install Prompt & Network Status Listeners
+    let deferredInstallPrompt: any = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      const installBtn = this.appEl.querySelector<HTMLButtonElement>('#nav-install-btn');
+      if (installBtn) {
+        installBtn.style.display = 'inline-flex';
+        this.refreshIcons();
+        installBtn.onclick = async () => {
+          if (!deferredInstallPrompt) return;
+          deferredInstallPrompt.prompt();
+          const { outcome } = await deferredInstallPrompt.userChoice;
+          if (outcome === 'accepted') {
+            toast.show('mePDF installed successfully!', 'success');
+            installBtn.style.display = 'none';
+          }
+          deferredInstallPrompt = null;
+        };
+      }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      const installBtn = this.appEl.querySelector<HTMLButtonElement>('#nav-install-btn');
+      if (installBtn) installBtn.style.display = 'none';
+      toast.show('mePDF is installed and ready for offline use!', 'success');
+    });
+
+    window.addEventListener('offline', () => {
+      toast.show('Offline mode active. All mePDF tools work 100% locally!', 'info');
+    });
+
+    window.addEventListener('online', () => {
+      toast.show('Internet connection restored.', 'info');
     });
 
     // Initialize sub-components
@@ -571,3 +614,16 @@ class MePdfApp {
 document.addEventListener('DOMContentLoaded', () => {
   new MePdfApp();
 });
+
+// Register PWA Service Worker for 100% offline access
+if ('serviceWorker' in navigator) {
+  registerSW({
+    immediate: true,
+    onNeedRefresh() {
+      toast.show('New version available. Reload to update.', 'info');
+    },
+    onOfflineReady() {
+      toast.show('mePDF is ready for offline use!', 'success');
+    },
+  });
+}
