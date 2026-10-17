@@ -27,6 +27,7 @@ import {
 import { toast } from './Toast';
 import { progressOverlay } from './ProgressOverlay';
 import type { PDFPageItem, DocumentMetadata, CompressionPreset } from '../core/types';
+import { t } from '../core/i18n';
 
 /**
  * Returns an intuitive default split range expression based on page count
@@ -222,66 +223,66 @@ export class ModalManager {
     let currentQuality = 0.78;
     const originalSize = documentBytes.byteLength;
 
-    const title = `<i data-lucide="minimize-2" style="width: 18px; height: 18px; color: var(--primary);"></i> Smart PDF Compression`;
+    const title = `<i data-lucide="minimize-2" style="width: 18px; height: 18px; color: var(--primary);"></i> ${t('compressModalTitle')}`;
     const bodyHtml = `
       <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5;">
-        Downsamples high-resolution scanned graphics and optimizes page structures directly in your browser with zero server upload.
+        ${t('compressModalDesc')}
       </div>
 
       <div class="form-group">
-        <label class="form-label">Compression Preset</label>
+        <label class="form-label">${t('compressPresetLabel')}</label>
         <div class="preset-selector">
           <div class="preset-card" data-preset="screen" data-dpi="96" data-quality="0.65">
-            <div class="preset-title">Screen</div>
-            <div class="preset-desc">96 DPI • Maximum savings</div>
+            <div class="preset-title">${t('compressPresetScreen')}</div>
+            <div class="preset-desc">${t('compressPresetScreenDesc')}</div>
           </div>
           <div class="preset-card active" data-preset="ebook" data-dpi="150" data-quality="0.78">
-            <div class="preset-title">Ebook</div>
-            <div class="preset-desc">150 DPI • Balanced sharpness</div>
+            <div class="preset-title">${t('compressPresetEbook')}</div>
+            <div class="preset-desc">${t('compressPresetEbookDesc')}</div>
           </div>
           <div class="preset-card" data-preset="printer" data-dpi="300" data-quality="0.90">
-            <div class="preset-title">Print</div>
-            <div class="preset-desc">300 DPI • High quality print</div>
+            <div class="preset-title">${t('compressPresetPrint')}</div>
+            <div class="preset-desc">${t('compressPresetPrintDesc')}</div>
           </div>
         </div>
       </div>
 
       <div class="form-group">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <label class="form-label" for="compress-quality-slider">Quality Slider</label>
+          <label class="form-label" for="compress-quality-slider">${t('compressQualitySlider')}</label>
           <span id="compress-quality-value" style="font-size: 0.8125rem; font-weight: 700; color: var(--primary);">78%</span>
         </div>
         <input type="range" class="form-range" id="compress-quality-slider" min="10" max="95" value="78" step="1" />
         <div style="display: flex; justify-content: space-between; font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.2rem;">
-          <span>Maximum Compression (10%)</span>
-          <span>Balanced (75%)</span>
-          <span>Maximum Quality (95%)</span>
+          <span>${t('compressMaxSavings')}</span>
+          <span>${t('compressBalanced')}</span>
+          <span>${t('compressMaxQuality')}</span>
         </div>
       </div>
 
       <div class="size-comparison-card" style="background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
           <div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">Current File Size</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${t('compressCurrentSize')}</div>
             <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">${formatBytes(originalSize)}</div>
           </div>
           <div id="compress-result-box" style="text-align: right; display: none;">
-            <div style="font-size: 0.75rem; color: var(--success);">Optimized Size</div>
+            <div style="font-size: 0.75rem; color: var(--success);">${t('compressOptimizedSize')}</div>
             <div id="compress-result-size" style="font-size: 1.15rem; font-weight: 700; color: var(--success);"></div>
           </div>
         </div>
         <div id="compress-stats-summary" style="font-size: 0.8125rem; color: var(--text-muted); border-top: 1px dashed var(--border-subtle); padding-top: 0.5rem; display: flex; justify-content: space-between;">
-          <span>Target DPI: <strong id="compress-dpi-label" style="color: var(--text-secondary);">150 DPI</strong></span>
-          <span id="compress-est-label">Estimated savings: ~40% - 75%</span>
+          <span>${t('compressTargetDpi', { dpi: '<strong id="compress-dpi-label" style="color: var(--text-secondary);">150</strong>' })}</span>
+          <span id="compress-est-label">${t('compressEstSavings')}</span>
         </div>
       </div>
     `;
 
     const footerHtml = `
-      <button class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+      <button class="btn btn-secondary" id="modal-cancel-btn">${t('clearModalCancel')}</button>
       <button class="btn btn-primary" id="modal-start-compress-btn">
         <i data-lucide="minimize-2" style="width: 16px; height: 16px;"></i>
-        <span>Compress Now</span>
+        <span>${t('compressStartBtn')}</span>
       </button>
     `;
 
@@ -304,7 +305,7 @@ export class ModalManager {
         currentQuality = presetQ;
         qualitySlider.value = String(Math.round(presetQ * 100));
         qualityValueEl.textContent = `${Math.round(presetQ * 100)}%`;
-        if (dpiLabelEl) dpiLabelEl.textContent = `${presetDpi} DPI`;
+        if (dpiLabelEl) dpiLabelEl.textContent = presetDpi;
       });
     });
 
@@ -346,12 +347,15 @@ export class ModalManager {
           if (savedPercent > 0 && !result.ineffective) {
             resultSize.textContent = `${formatBytes(result.compressedSize)} (-${savedPercent}%)`;
             if (estLabel) {
-              estLabel.innerHTML = `Saved <strong style="color: var(--success);">${formatBytes(savedBytes)}</strong> (${savedPercent}% smaller)`;
+              estLabel.innerHTML = t('compressSavedInfo', {
+                saved: `<strong style="color: var(--success);">${formatBytes(savedBytes)}</strong>`,
+                percent: savedPercent,
+              });
             }
           } else {
             resultSize.textContent = `${formatBytes(result.compressedSize)} (Optimal)`;
             if (estLabel) {
-              estLabel.innerHTML = `<span style="color: var(--warning, #eab308);">File is already well-optimized (no further reduction possible)</span>`;
+              estLabel.innerHTML = `<span style="color: var(--warning, #eab308);">${t('compressAlreadyOptimal')}</span>`;
             }
           }
         }
@@ -360,7 +364,7 @@ export class ModalManager {
         startBtn.disabled = false;
         startBtn.innerHTML = `
           <i data-lucide="download" style="width: 16px; height: 16px;"></i>
-          <span>Download Compressed</span>
+          <span>${t('compressDownloadBtn')}</span>
         `;
         this.refreshIcons();
 
@@ -392,31 +396,31 @@ export class ModalManager {
     const totalPages = pages.length;
     const selectedCount = pages.filter((p) => p.selected).length;
 
-    const title = `<i data-lucide="scissors" style="width: 18px; height: 18px; color: var(--primary);"></i> Split Document`;
+    const title = `<i data-lucide="scissors" style="width: 18px; height: 18px; color: var(--primary);"></i> ${t('splitModalTitle')}`;
     const bodyHtml = `
       <div class="form-group">
-        <label class="form-label">Split Mode</label>
+        <label class="form-label">${t('splitModeLabel')}</label>
         <select class="form-select" id="split-mode-select">
-          <option value="each">Extract every page into a separate PDF</option>
-          <option value="ranges">Split by custom page ranges</option>
-          ${selectedCount > 0 ? `<option value="selected" selected>Export selected pages only (${selectedCount} pages)</option>` : ''}
+          <option value="each">${t('splitModeEach')}</option>
+          <option value="ranges">${t('splitModeRanges')}</option>
+          ${selectedCount > 0 ? `<option value="selected" selected>${t('splitModeSelected', { count: selectedCount })}</option>` : ''}
         </select>
       </div>
 
       <div class="form-group" id="split-range-group" style="display: none;">
-        <label class="form-label">Page Ranges</label>
-        <input type="text" class="form-input" id="split-range-input" placeholder="e.g. 1-2, 3-5, 6" value="${getDefaultSplitRange(totalPages)}" />
+        <label class="form-label">${t('splitRangesLabel')}</label>
+        <input type="text" class="form-input" id="split-range-input" placeholder="${t('splitRangesPlaceholder')}" value="${getDefaultSplitRange(totalPages)}" />
         <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
-          Specify page ranges separated by commas (Total pages: ${totalPages}).
+          ${t('splitRangesHint')} (Total: ${totalPages})
         </div>
       </div>
     `;
 
     const footerHtml = `
-      <button class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+      <button class="btn btn-secondary" id="modal-cancel-btn">${t('clearModalCancel')}</button>
       <button class="btn btn-primary" id="modal-execute-split-btn">
         <i data-lucide="scissors" style="width: 16px; height: 16px;"></i>
-        <span>Split & Download</span>
+        <span>${t('splitBtn')}</span>
       </button>
     `;
 
@@ -498,22 +502,23 @@ export class ModalManager {
       const text = await extractText(fileBytes, (info) => progressOverlay.update(info), password);
       progressOverlay.hide();
 
-      const title = `<i data-lucide="file-text" style="width: 18px; height: 18px; color: var(--primary);"></i> Extracted Plain Text`;
+      const title = `<i data-lucide="file-text" style="width: 18px; height: 18px; color: var(--primary);"></i> ${t('extractTextModalTitle')}`;
+      const displayText = text.trim() ? text : t('extractTextEmpty');
       const bodyHtml = `
         <div style="font-size: 0.8125rem; color: var(--text-muted);">
-          Extracted ${text.length.toLocaleString()} characters from ${escapeHtml(filename)}.
+          ${escapeHtml(filename)} (${text.length.toLocaleString()} characters)
         </div>
-        <textarea class="text-preview-box" id="extracted-text-area" readonly>${escapeHtml(text)}</textarea>
+        <textarea class="text-preview-box" id="extracted-text-area" readonly>${escapeHtml(displayText)}</textarea>
       `;
 
       const footerHtml = `
         <button class="btn btn-secondary" id="modal-copy-text-btn">
           <i data-lucide="copy" style="width: 16px; height: 16px;"></i>
-          <span>Copy Text</span>
+          <span>${t('extractTextCopyBtn')}</span>
         </button>
         <button class="btn btn-primary" id="modal-download-text-btn">
           <i data-lucide="download" style="width: 16px; height: 16px;"></i>
-          <span>Download .txt</span>
+          <span>${t('extractTextDownloadBtn')}</span>
         </button>
       `;
 
@@ -525,11 +530,11 @@ export class ModalManager {
 
       copyBtn.addEventListener('click', async () => {
         await navigator.clipboard.writeText(textArea.value);
-        copyBtn.innerHTML = `<i data-lucide="check" style="width: 16px; height: 16px; color: var(--success);"></i><span>Copied!</span>`;
+        copyBtn.innerHTML = `<i data-lucide="check" style="width: 16px; height: 16px; color: var(--success);"></i><span>${t('extractTextCopiedBtn')}</span>`;
         this.refreshIcons();
         toast.show('Text copied to clipboard!', 'success');
         setTimeout(() => {
-          copyBtn.innerHTML = `<i data-lucide="copy" style="width: 16px; height: 16px;"></i><span>Copy Text</span>`;
+          copyBtn.innerHTML = `<i data-lucide="copy" style="width: 16px; height: 16px;"></i><span>${t('extractTextCopyBtn')}</span>`;
           this.refreshIcons();
         }, 2000);
       });
@@ -554,18 +559,22 @@ export class ModalManager {
   showImagesToPdfModal(
     onAddToStudio?: (files: File[], pageSize: 'A4' | 'fit') => Promise<void>
   ): void {
-    const title = `<i data-lucide="image" style="width: 18px; height: 18px; color: var(--primary);"></i> Convert Images to PDF`;
+    const title = `<i data-lucide="image" style="width: 18px; height: 18px; color: var(--primary);"></i> ${t('img2pdfModalTitle')}`;
     const bodyHtml = `
+      <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.75rem;">
+        ${t('img2pdfModalDesc')}
+      </div>
+
       <div class="form-group">
-        <label class="form-label">Select Image Files (PNG, JPG, WebP, etc.)</label>
+        <label class="form-label">${t('img2pdfSelectBtn')} (PNG, JPG, WebP, etc.)</label>
         <input type="file" id="img2pdf-file-input" class="form-input" multiple accept="image/*" />
       </div>
 
       <div class="form-group">
-        <label class="form-label">Page Sizing</label>
+        <label class="form-label">${t('img2pdfSizingLabel')}</label>
         <select class="form-select" id="img2pdf-pagesize-select">
-          <option value="A4" selected>Standard A4 Page (Centered with margin)</option>
-          <option value="fit">Fit Page to Exact Image Size</option>
+          <option value="A4" selected>${t('img2pdfFitA4')}</option>
+          <option value="fit">${t('img2pdfFitOriginal')}</option>
         </select>
       </div>
 
@@ -573,14 +582,14 @@ export class ModalManager {
     `;
 
     const footerHtml = `
-      <button class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+      <button class="btn btn-secondary" id="modal-cancel-btn">${t('clearModalCancel')}</button>
       <button class="btn btn-secondary" id="modal-add-to-studio-btn" disabled>
         <i data-lucide="layers" style="width: 16px; height: 16px;"></i>
-        <span>Add to Visual Studio</span>
+        <span>${t('img2pdfConvertBtn')}</span>
       </button>
       <button class="btn btn-primary" id="modal-convert-img2pdf-btn" disabled>
         <i data-lucide="download" style="width: 16px; height: 16px;"></i>
-        <span>Create PDF</span>
+        <span>${t('navExport')}</span>
       </button>
     `;
 
@@ -658,9 +667,10 @@ export class ModalManager {
     title: string,
     message: string,
     onConfirm: () => void,
-    confirmText = 'Confirm',
+    confirmText?: string,
     isDanger = false
   ): void {
+    const finalConfirmText = confirmText ?? t('clearModalConfirm');
     const modalTitle = `<i data-lucide="alert-triangle" style="width: 18px; height: 18px; color: ${isDanger ? 'var(--danger)' : 'var(--primary)'};"></i> ${escapeHtml(title)}`;
     const bodyHtml = `
       <div style="font-size: 0.9375rem; color: var(--text-primary); line-height: 1.6;">
@@ -668,9 +678,9 @@ export class ModalManager {
       </div>
     `;
     const footerHtml = `
-      <button class="btn btn-secondary" id="confirm-modal-cancel-btn">Cancel</button>
+      <button class="btn btn-secondary" id="confirm-modal-cancel-btn">${t('clearModalCancel')}</button>
       <button class="btn ${isDanger ? 'btn-danger' : 'btn-primary'}" id="confirm-modal-ok-btn">
-        <span>${escapeHtml(confirmText)}</span>
+        <span>${escapeHtml(finalConfirmText)}</span>
       </button>
     `;
 
@@ -701,22 +711,22 @@ export class ModalManager {
 
     this.setOnClose(cancelAction);
 
-    const title = `<i data-lucide="lock" style="width: 18px; height: 18px; color: var(--primary);"></i> Password Required`;
+    const title = `<i data-lucide="lock" style="width: 18px; height: 18px; color: var(--primary);"></i> ${t('passwordModalTitle')}`;
     const bodyHtml = `
       <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5;">
-        <strong>${escapeHtml(filename)}</strong> is password protected. Enter the password to unlock it.
+        ${t('passwordModalDesc', { name: `<strong>${escapeHtml(filename)}</strong>` })}
       </div>
       <div class="form-group" style="margin-top: 0.75rem;">
-        <label class="form-label" for="pdf-password-input">Password</label>
-        <input type="password" class="form-input" id="pdf-password-input" placeholder="Enter password" autofocus />
+        <label class="form-label" for="pdf-password-input">${t('passwordPlaceholder')}</label>
+        <input type="password" class="form-input" id="pdf-password-input" placeholder="${t('passwordPlaceholder')}" autofocus />
         <div id="pdf-password-error" style="color: var(--danger); font-size: 0.75rem; display: none; margin-top: 0.25rem;"></div>
       </div>
     `;
     const footerHtml = `
-      <button class="btn btn-secondary" id="modal-password-cancel-btn">Cancel</button>
+      <button class="btn btn-secondary" id="modal-password-cancel-btn">${t('clearModalCancel')}</button>
       <button class="btn btn-primary" id="modal-password-submit-btn">
         <i data-lucide="unlock" style="width: 16px; height: 16px;"></i>
-        <span>Unlock Document</span>
+        <span>${t('passwordUnlockBtn')}</span>
       </button>
     `;
 
@@ -781,31 +791,35 @@ export class ModalManager {
   // PDF TO IMAGES MODAL
   // ==========================================
   showPdfToImagesModal(documentBytes: Uint8Array, filename = 'document.pdf', password?: string): void {
-    const title = `<i data-lucide="image" style="width: 18px; height: 18px; color: var(--primary);"></i> Export PDF to Images`;
+    const title = `<i data-lucide="image" style="width: 18px; height: 18px; color: var(--primary);"></i> ${t('pdf2imgModalTitle')}`;
     const bodyHtml = `
+      <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.75rem;">
+        ${t('pdf2imgModalDesc')}
+      </div>
+
       <div class="form-group">
-        <label class="form-label">Image Resolution (DPI)</label>
+        <label class="form-label">${t('pdf2imgDpiLabel')}</label>
         <select class="form-select" id="pdf2img-dpi-select">
-          <option value="96">Screen (96 DPI • Fast & Light)</option>
-          <option value="150" selected>Balanced (150 DPI • Crisp)</option>
-          <option value="300">Ultra High-Res (300 DPI • Print Quality)</option>
+          <option value="96">Screen (96 DPI)</option>
+          <option value="150" selected>Balanced (150 DPI)</option>
+          <option value="300">Ultra High-Res (300 DPI)</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Output Image Format</label>
+        <label class="form-label">${t('pdf2imgFormatLabel')}</label>
         <select class="form-select" id="pdf2img-format-select">
-          <option value="png" selected>PNG (Lossless, sharpest text)</option>
-          <option value="jpeg">JPEG (Smaller file size)</option>
+          <option value="png" selected>PNG (Lossless)</option>
+          <option value="jpeg">JPEG</option>
         </select>
       </div>
     `;
 
     const footerHtml = `
-      <button class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+      <button class="btn btn-secondary" id="modal-cancel-btn">${t('clearModalCancel')}</button>
       <button class="btn btn-primary" id="modal-export-images-btn">
         <i data-lucide="download" style="width: 16px; height: 16px;"></i>
-        <span>Export as ZIP</span>
+        <span>${t('pdf2imgBtn')}</span>
       </button>
     `;
 

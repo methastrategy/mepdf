@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Plus,
   Scissors,
+  Globe,
 } from 'lucide';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -31,6 +32,10 @@ import { VisualGrid } from './components/VisualGrid';
 import { modal } from './components/Modal';
 import { toast } from './components/Toast';
 import { progressOverlay } from './components/ProgressOverlay';
+import { LightboxModal } from './components/LightboxModal';
+import { t, getLanguage, setLanguage, onLanguageChange } from './core/i18n';
+import { saveWorkspaceState, loadWorkspaceState, clearWorkspaceState } from './core/workspace-storage';
+import { getCurrentRoute, setHashRoute, onHashChange, type ToolRoute } from './core/router';
 
 class MePdfApp {
   private appEl: HTMLElement;
@@ -38,6 +43,7 @@ class MePdfApp {
   private pages: PDFPageItem[] = [];
   private toolbar: Toolbar | null = null;
   private visualGrid: VisualGrid | null = null;
+  private lightboxModal: LightboxModal | null = null;
   private fileInput: HTMLInputElement;
   private pendingAction: string | null = null;
   private undoStack: Array<{
@@ -45,6 +51,7 @@ class MePdfApp {
     documents: DocumentMetadata[];
   }> = [];
   private activeUndoToast: { dismiss: () => void } | null = null;
+  private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.appEl = document.querySelector<HTMLElement>('#app')!;
@@ -55,56 +62,67 @@ class MePdfApp {
     this.fileInput.style.display = 'none';
     document.body.appendChild(this.fileInput);
 
+    this.lightboxModal = new LightboxModal();
+
     this.renderShell();
     this.initEventListeners();
+    this.initRouterAndStorage();
     this.updateUI();
   }
 
   private renderShell(): void {
+    const lang = getLanguage();
     this.appEl.innerHTML = `
       <header class="navbar">
         <div class="brand-section">
           <div class="brand-logo">
             <span>mePDF</span>
           </div>
-          <span class="brand-badge">Pure Client-Side</span>
+          <span class="brand-badge" id="brand-badge-el">${t('brandBadge')}</span>
         </div>
 
         <nav class="nav-tabs">
           <button class="nav-tab-btn active" data-tab="studio">
             <i data-lucide="layers" style="width: 15px; height: 15px;"></i>
-            <span>Visual Studio (Merge & Organize)</span>
+            <span>${t('tabStudio')}</span>
           </button>
           <button class="nav-tab-btn" data-tab="split">
             <i data-lucide="scissors" style="width: 15px; height: 15px;"></i>
-            <span>Split PDF</span>
+            <span>${t('tabSplit')}</span>
           </button>
           <button class="nav-tab-btn" data-tab="compress">
             <i data-lucide="minimize-2" style="width: 15px; height: 15px;"></i>
-            <span>Compress</span>
+            <span>${t('tabCompress')}</span>
           </button>
           <button class="nav-tab-btn" data-tab="img2pdf">
             <i data-lucide="image" style="width: 15px; height: 15px;"></i>
-            <span>Images to PDF</span>
+            <span>${t('tabImg2Pdf')}</span>
           </button>
           <button class="nav-tab-btn" data-tab="pdf2img">
             <i data-lucide="image" style="width: 15px; height: 15px;"></i>
-            <span>PDF to Images</span>
+            <span>${t('tabPdf2Img')}</span>
           </button>
           <button class="nav-tab-btn" data-tab="extract-text">
             <i data-lucide="file-text" style="width: 15px; height: 15px;"></i>
-            <span>Extract Text</span>
+            <span>${t('tabExtractText')}</span>
           </button>
         </nav>
 
         <div class="nav-actions">
-          <button class="btn btn-secondary" id="nav-install-btn" style="display: none;" title="Install mePDF Application">
-            <i data-lucide="download-cloud" style="width: 15px; height: 15px;"></i>
-            <span>Install App</span>
+          <button class="lang-switcher-btn" id="nav-lang-toggle-btn" title="Switch Language / สลับภาษา">
+            <i data-lucide="globe" style="width: 14px; height: 14px;"></i>
+            <span class="lang-opt ${lang === 'th' ? 'active' : ''}">TH</span>
+            <span class="lang-sep">/</span>
+            <span class="lang-opt ${lang === 'en' ? 'active' : ''}">EN</span>
           </button>
-          <button class="btn btn-primary" id="nav-export-btn" title="Save & Export PDF (Ctrl+S)">
+
+          <button class="btn btn-secondary" id="nav-install-btn" style="display: none;" title="${t('navInstall')}">
+            <i data-lucide="download-cloud" style="width: 15px; height: 15px;"></i>
+            <span>${t('navInstall')}</span>
+          </button>
+          <button class="btn btn-primary" id="nav-export-btn" title="${t('navExport')} (Ctrl+S)">
             <i data-lucide="download" style="width: 16px; height: 16px;"></i>
-            <span id="nav-export-label">Export PDF</span>
+            <span id="nav-export-label">${t('navExport')}</span>
           </button>
         </div>
       </header>
@@ -114,21 +132,19 @@ class MePdfApp {
           <div class="dropzone-icon">
             <i data-lucide="upload" style="width: 36px; height: 36px;"></i>
           </div>
-          <h2 class="dropzone-title">Drop PDF or Image files here</h2>
-          <p class="dropzone-desc">
-            Organize, merge, rotate, split, or compress your documents instantly. All operations happen 100% in your browser.
-          </p>
+          <h2 class="dropzone-title" id="dropzone-title-el">${t('dropzoneTitle')}</h2>
+          <p class="dropzone-desc" id="dropzone-desc-el">${t('dropzoneDesc')}</p>
           <button class="btn btn-primary" id="dropzone-browse-btn">
             <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
-            <span>Select Files</span>
+            <span id="dropzone-select-label">${t('dropzoneSelectBtn')}</span>
           </button>
           <div class="dropzone-pills">
             <span class="privacy-pill">
               <i data-lucide="shield-check" style="width: 13px; height: 13px; color: var(--success);"></i>
-              Zero server upload • 100% Private
+              <span id="dropzone-zero-upload-label">${t('dropzoneZeroUpload')}</span>
             </span>
-            <span class="privacy-pill">Unlimited File Size</span>
-            <span class="privacy-pill">PDF, JPG, PNG, WebP</span>
+            <span class="privacy-pill" id="dropzone-unlimited-label">${t('dropzoneUnlimitedSize')}</span>
+            <span class="privacy-pill" id="dropzone-formats-label">${t('dropzoneSupportedFormats')}</span>
           </div>
         </div>
 
@@ -153,6 +169,7 @@ class MePdfApp {
         ShieldCheck,
         Plus,
         Scissors,
+        Globe,
       },
       nameAttr: 'data-lucide',
     });
@@ -216,10 +233,18 @@ class MePdfApp {
       });
     });
 
+    // Language toggle button
+    const langToggleBtn = this.appEl.querySelector('#nav-lang-toggle-btn');
+    langToggleBtn?.addEventListener('click', () => {
+      const nextLang = getLanguage() === 'th' ? 'en' : 'th';
+      setLanguage(nextLang);
+      toast.show(t('toastLanguageSwitched'), 'info');
+    });
+
     // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
-      // Inhibit all workspace keyboard shortcuts when a modal dialog or progress overlay is active
-      if (modal.isOpen() || progressOverlay.isOpen()) return;
+      // Inhibit all workspace keyboard shortcuts when a modal dialog, progress overlay, or lightbox is active
+      if (modal.isOpen() || progressOverlay.isOpen() || (this.lightboxModal && this.lightboxModal.isOpen())) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
@@ -261,7 +286,7 @@ class MePdfApp {
           deferredInstallPrompt.prompt();
           const { outcome } = await deferredInstallPrompt.userChoice;
           if (outcome === 'accepted') {
-            toast.show('mePDF installed successfully!', 'success');
+            toast.show(t('toastAppInstalled'), 'success');
             installBtn.style.display = 'none';
           }
           deferredInstallPrompt = null;
@@ -272,15 +297,15 @@ class MePdfApp {
     window.addEventListener('appinstalled', () => {
       const installBtn = this.appEl.querySelector<HTMLButtonElement>('#nav-install-btn');
       if (installBtn) installBtn.style.display = 'none';
-      toast.show('mePDF is installed and ready for offline use!', 'success');
+      toast.show(t('toastOfflineReady'), 'success');
     });
 
     window.addEventListener('offline', () => {
-      toast.show('Offline mode active. All mePDF tools work 100% locally!', 'info');
+      toast.show(t('toastOfflineActive'), 'info');
     });
 
     window.addEventListener('online', () => {
-      toast.show('Internet connection restored.', 'info');
+      toast.show(t('toastOnlineActive'), 'info');
     });
 
     // Initialize sub-components
@@ -304,6 +329,7 @@ class MePdfApp {
       onRotatePage: (pageId, deg) => this.rotateSinglePage(pageId, deg),
       onDeletePage: (pageId) => this.deleteSinglePage(pageId),
       onReorder: (from, to) => this.reorderPages(from, to),
+      onZoomPage: (pageId) => this.lightboxModal?.open(pageId, this.pages, this.documents),
       onFilesDropped: (droppedFiles) => this.handleFiles(droppedFiles),
     });
   }
@@ -319,7 +345,7 @@ class MePdfApp {
     const imageFiles = files.filter(isImage);
 
     if (pdfFiles.length === 0 && imageFiles.length === 0) {
-      toast.show('Please upload PDF or Image files.', 'error');
+      toast.show(t('toastUploadPdfOrImg'), 'error');
       return;
     }
 
@@ -435,7 +461,7 @@ class MePdfApp {
       }
 
       progressOverlay.hide();
-      toast.show(`Imported ${this.pages.length} pages successfully!`, 'success');
+      toast.show(t('toastImportSuccess', { count: this.pages.length }), 'success');
       this.updateUI();
 
       // Trigger any action that was pending file selection
@@ -454,6 +480,23 @@ class MePdfApp {
   // ==========================================
   // WORKSPACE ACTIONS
   // ==========================================
+  private triggerAutoSave(): void {
+    if (this.autoSaveTimer) {
+      clearTimeout(this.autoSaveTimer);
+    }
+    this.autoSaveTimer = setTimeout(async () => {
+      try {
+        if (this.pages.length > 0) {
+          await saveWorkspaceState(Array.from(this.documents.values()), this.pages);
+        } else {
+          await clearWorkspaceState();
+        }
+      } catch (err) {
+        console.warn('Auto-save error:', err);
+      }
+    }, 400);
+  }
+
   private updateUI(): void {
     const hasPages = this.pages.length > 0;
     const dropzoneArea = this.appEl.querySelector<HTMLElement>('#dropzone-area')!;
@@ -470,7 +513,7 @@ class MePdfApp {
       exportBtn.style.opacity = '1';
 
       const selectedCount = this.pages.filter((p) => p.selected).length;
-      exportLabel.textContent = `Export PDF (${this.pages.length})`;
+      exportLabel.textContent = t('navExportCount', { count: this.pages.length });
       this.toolbar?.updateState(this.pages.length, selectedCount);
       this.visualGrid?.setPages(this.pages);
     } else {
@@ -479,9 +522,11 @@ class MePdfApp {
       gridContainer.style.display = 'none';
       exportBtn.disabled = true;
       exportBtn.style.opacity = '0.5';
-      exportLabel.textContent = 'Export PDF';
+      exportLabel.textContent = t('navExport');
       this.visualGrid?.setPages([]);
     }
+
+    this.triggerAutoSave();
   }
 
   private toggleSelectAll(): void {
@@ -510,7 +555,7 @@ class MePdfApp {
     this.pages.forEach((p) => {
       p.rotation = (p.rotation + degrees) % 360;
     });
-    toast.show(`Rotated all ${this.pages.length} pages (+${degrees}°)`, 'info');
+    toast.show(t('toastRotatedAll', { count: this.pages.length, deg: degrees }), 'info');
     this.updateUI();
   }
 
@@ -525,7 +570,7 @@ class MePdfApp {
       p.rotation = (p.rotation + degrees) % 360;
     });
 
-    toast.show(`Rotated ${selectedPages.length} selected ${selectedPages.length === 1 ? 'page' : 'pages'} (+${degrees}°)`, 'info');
+    toast.show(t('toastRotatedSelected', { count: selectedPages.length, deg: degrees }), 'info');
     this.updateUI();
   }
 
@@ -580,7 +625,7 @@ class MePdfApp {
     this.pruneUnusedDocuments();
     this.updateUI();
 
-    this.activeUndoToast = toast.showAction('Page removed', 'Undo', () => this.undoDelete());
+    this.activeUndoToast = toast.showAction(t('toastPageRemoved'), t('toastUndo'), () => this.undoDelete());
   }
 
   private deleteSelected(): void {
@@ -618,8 +663,8 @@ class MePdfApp {
     this.updateUI();
 
     this.activeUndoToast = toast.showAction(
-      `Removed ${selectedCount} ${selectedCount === 1 ? 'page' : 'pages'}`,
-      'Undo',
+      t('toastPagesRemoved', { count: selectedCount }),
+      t('toastUndo'),
       () => this.undoDelete()
     );
   }
@@ -651,7 +696,7 @@ class MePdfApp {
 
     const count = sorted.length;
     this.updateUI();
-    toast.show(`Restored ${count} ${count === 1 ? 'page' : 'pages'}!`, 'success');
+    toast.show(t('toastPagesRestored', { count }), 'success');
   }
 
   private reorderPages(fromIndex: number, toIndex: number): void {
@@ -666,9 +711,9 @@ class MePdfApp {
   private clearAll(): void {
     if (this.pages.length === 0) return;
     modal.showConfirmModal(
-      'Clear Workspace',
-      'Are you sure you want to clear all pages from the workspace? All uploaded documents and edits will be removed.',
-      () => {
+      t('clearModalTitle'),
+      t('clearModalDesc'),
+      async () => {
         if (this.activeUndoToast) {
           this.activeUndoToast.dismiss();
           this.activeUndoToast = null;
@@ -677,10 +722,11 @@ class MePdfApp {
         this.documents.clear();
         this.undoStack = [];
         clearThumbnailCache();
+        await clearWorkspaceState();
         this.updateUI();
-        toast.show('Workspace cleared', 'info');
+        toast.show(t('toastWorkspaceCleared'), 'info');
       },
-      'Clear All',
+      t('clearModalConfirm'),
       true
     );
   }
@@ -690,7 +736,7 @@ class MePdfApp {
   // ==========================================
   private async exportCurrentDocument(): Promise<void> {
     if (this.pages.length === 0) {
-      toast.show('No pages to export.', 'info');
+      toast.show(t('toastNoPagesToExport'), 'info');
       return;
     }
 
@@ -712,7 +758,7 @@ class MePdfApp {
       }
 
       downloadBytes(mergedBytes, exportFilename);
-      toast.show(`Exported ${this.pages.length} pages successfully!`, 'success');
+      toast.show(t('toastExportSuccess', { count: this.pages.length }), 'success');
     } catch (err: unknown) {
       progressOverlay.hide();
       const msg = err instanceof Error ? err.message : String(err);
@@ -722,7 +768,7 @@ class MePdfApp {
 
   private openSplitModal(): void {
     if (this.pages.length < 2) {
-      toast.show('At least 2 pages are required to split.', 'info');
+      toast.show(t('toastMinPagesToSplit'), 'info');
       this.resetNavTabToStudio();
       return;
     }
@@ -770,7 +816,7 @@ class MePdfApp {
   }
 
   // ==========================================
-  // TOP NAV TAB ACTIONS
+  // TOP NAV TAB ACTIONS & ROUTING
   // ==========================================
   private setActiveNavTab(tabName: string): void {
     const tabBtns = this.appEl.querySelectorAll<HTMLButtonElement>('.nav-tab-btn');
@@ -781,6 +827,7 @@ class MePdfApp {
 
   private resetNavTabToStudio(): void {
     this.setActiveNavTab('studio');
+    setHashRoute('studio');
   }
 
   private async handleTabSwitch(tab: string | null): Promise<void> {
@@ -788,23 +835,26 @@ class MePdfApp {
 
     if (tab === 'studio') {
       this.setActiveNavTab('studio');
+      setHashRoute('studio');
       return;
     }
 
     if (tab === 'split') {
       if (this.pages.length === 0) {
         this.pendingAction = 'split';
-        toast.show('Please select a PDF document first.', 'info');
+        toast.show(t('toastSelectDocFirst'), 'info');
         this.fileInput.click();
         return;
       }
       this.setActiveNavTab('split');
+      setHashRoute('split');
       this.openSplitModal();
       return;
     }
 
     if (tab === 'img2pdf') {
       this.setActiveNavTab('img2pdf');
+      setHashRoute('img2pdf');
       modal.setOnClose(() => this.resetNavTabToStudio());
       modal.showImagesToPdfModal(async (imageFiles, pageSize) => {
         progressOverlay.show('Converting images to PDF...');
@@ -822,7 +872,7 @@ class MePdfApp {
     // For tools requiring an existing document or file
     if (this.pages.length === 0) {
       this.pendingAction = tab;
-      toast.show('Please select a PDF document first.', 'info');
+      toast.show(t('toastSelectDocFirst'), 'info');
       this.fileInput.click();
       return;
     }
@@ -830,6 +880,7 @@ class MePdfApp {
     try {
       const { docBytes, docName, password } = await this.getActiveDocumentBytes();
       this.setActiveNavTab(tab);
+      setHashRoute(tab as ToolRoute);
       modal.setOnClose(() => this.resetNavTabToStudio());
 
       if (tab === 'compress') {
@@ -845,6 +896,112 @@ class MePdfApp {
       const msg = err instanceof Error ? err.message : String(err);
       toast.show(`Failed to prepare document: ${msg}`, 'error');
     }
+  }
+
+  // ==========================================
+  // ROUTER, STORAGE & I18N SYNC
+  // ==========================================
+  private async initRouterAndStorage(): Promise<void> {
+    onLanguageChange(() => {
+      this.handleLanguageChanged();
+    });
+
+    onHashChange(async (route) => {
+      await this.handleTabSwitch(route);
+    });
+
+    // Restore session from IndexedDB if available
+    try {
+      const restored = await loadWorkspaceState();
+      if (restored && restored.pages.length > 0) {
+        this.documents.clear();
+        for (const doc of restored.documents) {
+          this.documents.set(doc.id, doc);
+        }
+        this.pages = restored.pages;
+        this.updateUI();
+        toast.show(t('toastSessionRestored'), 'info');
+      }
+    } catch (err) {
+      console.warn('Failed to restore workspace session:', err);
+    }
+
+    // Handle initial route on landing
+    const initialRoute = getCurrentRoute();
+    if (initialRoute && initialRoute !== 'studio') {
+      await this.handleTabSwitch(initialRoute);
+    }
+  }
+
+  private handleLanguageChanged(): void {
+    const lang = getLanguage();
+
+    // Update Brand badge
+    const badge = this.appEl.querySelector('#brand-badge-el');
+    if (badge) badge.textContent = t('brandBadge');
+
+    // Update Navbar tab labels
+    const tabMap: Record<string, string> = {
+      studio: t('tabStudio'),
+      split: t('tabSplit'),
+      compress: t('tabCompress'),
+      img2pdf: t('tabImg2Pdf'),
+      pdf2img: t('tabPdf2Img'),
+      'extract-text': t('tabExtractText'),
+    };
+    this.appEl.querySelectorAll<HTMLButtonElement>('.nav-tab-btn').forEach((btn) => {
+      const tab = btn.getAttribute('data-tab');
+      const span = btn.querySelector('span');
+      if (tab && span && tabMap[tab]) {
+        span.textContent = tabMap[tab];
+      }
+    });
+
+    // Update language toggle indicators
+    const thOpt = this.appEl.querySelector('#nav-lang-toggle-btn .lang-opt:first-of-type');
+    const enOpt = this.appEl.querySelector('#nav-lang-toggle-btn .lang-opt:last-of-type');
+    if (thOpt && enOpt) {
+      thOpt.classList.toggle('active', lang === 'th');
+      enOpt.classList.toggle('active', lang === 'en');
+    }
+
+    // Update Install and Export buttons
+    const installBtn = this.appEl.querySelector('#nav-install-btn');
+    if (installBtn) {
+      installBtn.setAttribute('title', t('navInstall'));
+      const span = installBtn.querySelector('span');
+      if (span) span.textContent = t('navInstall');
+    }
+    const exportLabel = this.appEl.querySelector('#nav-export-label');
+    if (exportLabel) {
+      exportLabel.textContent =
+        this.pages.length > 0
+          ? t('navExportCount', { count: this.pages.length })
+          : t('navExport');
+    }
+
+    // Update Dropzone texts
+    const dropzoneTitle = this.appEl.querySelector('#dropzone-title-el');
+    if (dropzoneTitle) dropzoneTitle.textContent = t('dropzoneTitle');
+
+    const dropzoneDesc = this.appEl.querySelector('#dropzone-desc-el');
+    if (dropzoneDesc) dropzoneDesc.textContent = t('dropzoneDesc');
+
+    const dropzoneSelect = this.appEl.querySelector('#dropzone-select-label');
+    if (dropzoneSelect) dropzoneSelect.textContent = t('dropzoneSelectBtn');
+
+    const dropzoneZero = this.appEl.querySelector('#dropzone-zero-upload-label');
+    if (dropzoneZero) dropzoneZero.textContent = t('dropzoneZeroUpload');
+
+    const dropzoneUnlimited = this.appEl.querySelector('#dropzone-unlimited-label');
+    if (dropzoneUnlimited) dropzoneUnlimited.textContent = t('dropzoneUnlimitedSize');
+
+    const dropzoneFormats = this.appEl.querySelector('#dropzone-formats-label');
+    if (dropzoneFormats) dropzoneFormats.textContent = t('dropzoneSupportedFormats');
+
+    // Re-render Toolbar and VisualGrid
+    this.toolbar?.render();
+    this.visualGrid?.setPages(this.pages);
   }
 }
 

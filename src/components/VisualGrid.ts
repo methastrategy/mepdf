@@ -1,12 +1,22 @@
-import { createIcons, RotateCw, Trash2, GripVertical, ChevronLeft, ChevronRight } from 'lucide';
+import {
+  createIcons,
+  RotateCw,
+  Trash2,
+  GripVertical,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+} from 'lucide';
 import type { PDFPageItem } from '../core/types';
 import { escapeHtml } from '../utils/file-utils';
+import { t } from '../core/i18n';
 
 export interface VisualGridEvents {
   onToggleSelect: (pageId: string) => void;
   onRotatePage: (pageId: string, degrees: number) => void;
   onDeletePage: (pageId: string) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  onZoomPage?: (pageId: string) => void;
   onFilesDropped?: (files: File[]) => void;
 }
 
@@ -15,6 +25,8 @@ export class VisualGrid {
   private events: VisualGridEvents;
   private pages: PDFPageItem[] = [];
   private draggedIndex: number | null = null;
+  private lastTapTime = 0;
+  private lastTapPageId = '';
 
   constructor(container: HTMLElement, events: VisualGridEvents) {
     this.container = container;
@@ -65,9 +77,9 @@ export class VisualGrid {
            draggable="true">
         
         <div class="page-card-header">
-          <label class="page-card-label" title="${escapeHtml(page.docName)} - Page ${page.displayPageNumber}">
+          <label class="page-card-label" title="${escapeHtml(page.docName)} - ${t('cardPagePrefix', { num: page.displayPageNumber })}">
             <input type="checkbox" class="page-select-checkbox" ${isSelected ? 'checked' : ''} data-page-id="${page.id}" />
-            <span>P.${page.displayPageNumber}</span>
+            <span>${t('cardPagePrefix', { num: page.displayPageNumber })}</span>
           </label>
           <div style="display: flex; align-items: center; gap: 0.35rem; max-width: 120px;">
             <span class="doc-badge" title="${escapeHtml(page.docName)}">
@@ -77,7 +89,7 @@ export class VisualGrid {
           </div>
         </div>
 
-        <div class="page-thumbnail-box" title="Drag to reorder page">
+        <div class="page-thumbnail-box" title="${t('cardZoomPreview')}">
           <img class="page-thumbnail-img" 
                src="${page.thumbnailDataUrl}" 
                alt="Page ${page.displayPageNumber}" 
@@ -87,26 +99,30 @@ export class VisualGrid {
         </div>
 
         <div class="page-card-footer">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <button class="page-action-btn page-move-left-btn" data-index="${index}" ${isFirst ? 'disabled' : ''} title="Move left">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button class="page-action-btn page-move-left-btn" data-index="${index}" ${isFirst ? 'disabled' : ''} title="${t('cardMoveLeft')}">
               <i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i>
             </button>
-            <button class="page-action-btn page-move-right-btn" data-index="${index}" ${isLast ? 'disabled' : ''} title="Move right">
+            <button class="page-action-btn page-move-right-btn" data-index="${index}" ${isLast ? 'disabled' : ''} title="${t('cardMoveRight')}">
               <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
             </button>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <button class="page-action-btn page-rotate-btn" data-page-id="${page.id}" title="Rotate 90° clockwise">
-              <i data-lucide="rotate-cw" style="width: 14px; height: 14px;"></i>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button class="page-action-btn page-zoom-btn" data-page-id="${page.id}" title="${t('cardZoomPreview')}">
+              <i data-lucide="maximize-2" style="width: 13px; height: 13px;"></i>
+            </button>
+
+            <button class="page-action-btn page-rotate-btn" data-page-id="${page.id}" title="${t('cardRotateCw')}">
+              <i data-lucide="rotate-cw" style="width: 13px; height: 13px;"></i>
             </button>
             
-            <span class="page-drag-handle" style="cursor: grab;" title="Drag to reorder">
-              <i data-lucide="grip-vertical" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+            <span class="page-drag-handle" style="cursor: grab;" title="${t('cardDragReorder')}">
+              <i data-lucide="grip-vertical" style="width: 13px; height: 13px; color: var(--text-muted);"></i>
             </span>
 
-            <button class="page-action-btn delete-btn page-delete-btn" data-page-id="${page.id}" title="Delete this page">
-              <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+            <button class="page-action-btn delete-btn page-delete-btn" data-page-id="${page.id}" title="${t('cardDeletePage')}">
+              <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
             </button>
           </div>
         </div>
@@ -127,6 +143,13 @@ export class VisualGrid {
       checkbox?.addEventListener('change', (e) => {
         e.stopPropagation();
         this.events.onToggleSelect(pageId);
+      });
+
+      // Zoom preview button click
+      const zoomBtn = card.querySelector('.page-zoom-btn');
+      zoomBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.events.onZoomPage?.(pageId);
       });
 
       // Rotate click
@@ -157,6 +180,25 @@ export class VisualGrid {
         this.events.onDeletePage(pageId);
       });
 
+      // Double-click on thumbnail box opens zoom lightbox
+      const thumbBox = card.querySelector('.page-thumbnail-box');
+      thumbBox?.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        this.events.onZoomPage?.(pageId);
+      });
+
+      // Touch double-tap support for mobile
+      thumbBox?.addEventListener('touchend', (e) => {
+        const currentTime = Date.now();
+        const tapLength = currentTime - this.lastTapTime;
+        if (tapLength < 350 && tapLength > 0 && this.lastTapPageId === pageId) {
+          e.preventDefault();
+          this.events.onZoomPage?.(pageId);
+        }
+        this.lastTapTime = currentTime;
+        this.lastTapPageId = pageId;
+      });
+
       // Card click for selection toggle (when not clicking buttons, inputs, labels, footer, or handles)
       card.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
@@ -171,6 +213,19 @@ export class VisualGrid {
           return;
         }
         this.events.onToggleSelect(pageId);
+      });
+
+      // Double-click on card background also triggers zoom preview
+      card.addEventListener('dblclick', (e) => {
+        const target = e.target as HTMLElement;
+        if (
+          target.closest('button') ||
+          target.closest('input') ||
+          target.closest('.page-card-footer')
+        ) {
+          return;
+        }
+        this.events.onZoomPage?.(pageId);
       });
 
       // Drag and Drop
@@ -235,6 +290,7 @@ export class VisualGrid {
         GripVertical,
         ChevronLeft,
         ChevronRight,
+        Maximize2,
       },
       nameAttr: 'data-lucide',
     });

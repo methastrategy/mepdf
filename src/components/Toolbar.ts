@@ -1,4 +1,5 @@
 import { createIcons, RotateCw, RotateCcw, Trash2, CheckSquare, Square, Scissors, Plus, RefreshCw, X } from 'lucide';
+import { t } from '../core/i18n';
 
 export interface ToolbarEvents {
   onSelectAll: () => void;
@@ -20,6 +21,8 @@ export class Toolbar {
   private splitBtn: HTMLButtonElement | null = null;
   private selectAllBtn: HTMLButtonElement | null = null;
   private rotateSelectedBtn: HTMLButtonElement | null = null;
+  private totalPages = 0;
+  private selectedCount = 0;
 
   constructor(container: HTMLElement, events: ToolbarEvents) {
     this.container = container;
@@ -27,7 +30,7 @@ export class Toolbar {
     this.render();
   }
 
-  private render(): void {
+  render(): void {
     this.container.innerHTML = `
       <div class="workspace-toolbar">
         <div class="toolbar-left">
@@ -35,48 +38,48 @@ export class Toolbar {
           
           <div class="toolbar-divider"></div>
 
-          <button class="btn btn-secondary" id="toolbar-btn-select-all" title="Select / Deselect All">
+          <button class="btn btn-secondary" id="toolbar-btn-select-all" title="${t('toolbarSelectAll')}">
             <i data-lucide="check-square" style="width: 15px; height: 15px;"></i>
-            <span>Select All</span>
+            <span id="toolbar-select-all-label">${t('toolbarSelectAll')}</span>
           </button>
 
-          <button class="btn btn-secondary" id="toolbar-btn-invert" title="Invert Selection">
+          <button class="btn btn-secondary" id="toolbar-btn-invert" title="${t('toolbarInvert')}">
             <i data-lucide="refresh-cw" style="width: 15px; height: 15px;"></i>
-            <span>Invert</span>
+            <span>${t('toolbarInvert')}</span>
           </button>
 
           <div class="toolbar-divider"></div>
 
-          <button class="btn btn-secondary" id="toolbar-btn-rotate-all" title="Rotate all pages +90°">
+          <button class="btn btn-secondary" id="toolbar-btn-rotate-all" title="${t('toolbarRotateAll')}">
             <i data-lucide="rotate-cw" style="width: 15px; height: 15px;"></i>
-            <span>Rotate All</span>
+            <span>${t('toolbarRotateAll')}</span>
           </button>
 
-          <button class="btn btn-secondary" id="toolbar-btn-rotate-selected" title="Rotate selected pages +90°">
+          <button class="btn btn-secondary" id="toolbar-btn-rotate-selected" title="${t('toolbarRotateSelected')}">
             <i data-lucide="rotate-cw" style="width: 15px; height: 15px;"></i>
-            <span>Rotate Selected</span>
+            <span>${t('toolbarRotateSelected')}</span>
           </button>
 
-          <button class="btn btn-secondary" id="toolbar-btn-split" title="Split document into multiple files">
+          <button class="btn btn-secondary" id="toolbar-btn-split" title="${t('toolbarSplit')}">
             <i data-lucide="scissors" style="width: 15px; height: 15px;"></i>
-            <span>Split</span>
+            <span>${t('toolbarSplit')}</span>
           </button>
 
-          <button class="btn btn-danger" id="toolbar-btn-delete" title="Delete selected pages">
+          <button class="btn btn-danger" id="toolbar-btn-delete" title="${t('toolbarDeleteSelected')}">
             <i data-lucide="trash-2" style="width: 15px; height: 15px;"></i>
-            <span>Delete Selected</span>
+            <span>${t('toolbarDeleteSelected')}</span>
           </button>
         </div>
 
         <div class="toolbar-right">
           <button class="btn btn-secondary" id="toolbar-btn-add">
             <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
-            <span>Add Files</span>
+            <span>${t('toolbarAddFiles')}</span>
           </button>
 
-          <button class="btn btn-ghost" id="toolbar-btn-clear" title="Clear all files from workspace">
+          <button class="btn btn-ghost" id="toolbar-btn-clear" title="${t('toolbarClearAll')}">
             <i data-lucide="x" style="width: 15px; height: 15px;"></i>
-            <span>Clear All</span>
+            <span>${t('toolbarClearAll')}</span>
           </button>
         </div>
       </div>
@@ -90,6 +93,7 @@ export class Toolbar {
 
     this.attachEventListeners();
     this.refreshIcons();
+    this.updateState(this.totalPages, this.selectedCount);
   }
 
   private refreshIcons(): void {
@@ -144,22 +148,32 @@ export class Toolbar {
   }
 
   updateState(totalPages: number, selectedCount: number): void {
+    this.totalPages = totalPages;
+    this.selectedCount = selectedCount;
+
     if (this.selectionBadge) {
       if (selectedCount > 0) {
-        this.selectionBadge.textContent = `${selectedCount} of ${totalPages} selected`;
+        this.selectionBadge.textContent = t('toolbarSelectedOfTotal', {
+          selected: selectedCount,
+          total: totalPages,
+        });
       } else {
-        this.selectionBadge.textContent = `${totalPages} ${totalPages === 1 ? 'page' : 'pages'}`;
+        this.selectionBadge.textContent =
+          totalPages === 1
+            ? t('toolbarSinglePage')
+            : t('toolbarPagesCount', { count: totalPages });
       }
     }
 
     if (this.selectAllBtn) {
       const isAllSelected = selectedCount === totalPages && totalPages > 0;
       this.selectAllBtn.disabled = totalPages === 0;
+      const labelText = isAllSelected ? t('toolbarDeselectAll') : t('toolbarSelectAll');
       this.selectAllBtn.innerHTML = `
         <i data-lucide="${isAllSelected ? 'square' : 'check-square'}" style="width: 15px; height: 15px;"></i>
-        <span>${isAllSelected ? 'Deselect All' : 'Select All'}</span>
+        <span>${labelText}</span>
       `;
-      this.selectAllBtn.title = isAllSelected ? 'Deselect all pages' : 'Select all pages';
+      this.selectAllBtn.title = labelText;
       this.refreshIcons();
     }
 

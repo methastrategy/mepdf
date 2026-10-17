@@ -1,0 +1,383 @@
+export type Language = 'th' | 'en';
+
+export const translations = {
+  en: {
+    // Brand
+    brandName: 'mePDF',
+    brandBadge: 'Pure Client-Side',
+
+    // Navbar
+    tabStudio: 'Visual Studio (Merge & Organize)',
+    tabSplit: 'Split PDF',
+    tabCompress: 'Compress',
+    tabImg2Pdf: 'Images to PDF',
+    tabPdf2Img: 'PDF to Images',
+    tabExtractText: 'Extract Text',
+    navInstall: 'Install App',
+    navExport: 'Export PDF',
+    navExportCount: 'Export PDF ({count})',
+
+    // Dropzone
+    dropzoneTitle: 'Drop PDF or Image files here',
+    dropzoneDesc:
+      'Organize, merge, rotate, split, or compress your documents instantly. All operations happen 100% in your browser.',
+    dropzoneSelectBtn: 'Select Files',
+    dropzoneZeroUpload: 'Zero server upload • 100% Private',
+    dropzoneUnlimitedSize: 'Unlimited File Size',
+    dropzoneSupportedFormats: 'PDF, JPG, PNG, WebP',
+    dropzoneForTool: 'Drop PDF here to use {tool}',
+
+    // Toolbar
+    toolbarPagesCount: '{count} pages',
+    toolbarSinglePage: '1 page',
+    toolbarSelectedOfTotal: '{selected} of {total} selected',
+    toolbarSelectAll: 'Select All',
+    toolbarDeselectAll: 'Deselect All',
+    toolbarInvert: 'Invert',
+    toolbarRotateAll: 'Rotate All',
+    toolbarRotateSelected: 'Rotate Selected',
+    toolbarSplit: 'Split',
+    toolbarDeleteSelected: 'Delete Selected',
+    toolbarAddFiles: 'Add Files',
+    toolbarClearAll: 'Clear All',
+
+    // Cards
+    cardMoveLeft: 'Move left',
+    cardMoveRight: 'Move right',
+    cardRotateCw: 'Rotate 90° clockwise',
+    cardZoomPreview: 'Zoom Preview (Double-click)',
+    cardDragReorder: 'Drag to reorder',
+    cardDeletePage: 'Delete this page',
+    cardPagePrefix: 'P.{num}',
+
+    // Clear confirmation modal
+    clearModalTitle: 'Clear Workspace',
+    clearModalDesc:
+      'Are you sure you want to clear all pages from the workspace? All uploaded documents and edits will be removed.',
+    clearModalConfirm: 'Clear All',
+    clearModalCancel: 'Cancel',
+
+    // Split modal
+    splitModalTitle: 'Split Document',
+    splitModeLabel: 'Split Mode',
+    splitModeEach: 'Extract every page into a separate PDF',
+    splitModeRanges: 'Custom page ranges (e.g. 1-3, 4-6, 7)',
+    splitModeSelected: 'Extract only selected pages ({count} pages)',
+    splitRangesLabel: 'Page Ranges',
+    splitRangesPlaceholder: 'e.g. 1-2, 3-5, 6',
+    splitRangesHint: 'Separate individual parts by commas or semicolons.',
+    splitBtn: 'Split & Download ZIP',
+
+    // Compress modal
+    compressModalTitle: 'Smart PDF Compression',
+    compressModalDesc:
+      'Downsamples high-resolution scanned graphics and optimizes page structures directly in your browser with zero server upload.',
+    compressPresetLabel: 'Compression Preset',
+    compressPresetScreen: 'Screen',
+    compressPresetScreenDesc: '96 DPI • Maximum savings',
+    compressPresetEbook: 'Ebook',
+    compressPresetEbookDesc: '150 DPI • Balanced sharpness',
+    compressPresetPrint: 'Print',
+    compressPresetPrintDesc: '300 DPI • High quality print',
+    compressQualitySlider: 'Quality Slider',
+    compressMaxSavings: 'Maximum Compression (10%)',
+    compressBalanced: 'Balanced (75%)',
+    compressMaxQuality: 'Maximum Quality (95%)',
+    compressCurrentSize: 'Current File Size',
+    compressOptimizedSize: 'Optimized Size',
+    compressTargetDpi: 'Target DPI: {dpi} DPI',
+    compressEstSavings: 'Estimated savings: ~40% - 75%',
+    compressSavedInfo: 'Saved {saved} ({percent}% smaller)',
+    compressAlreadyOptimal: 'File is already well-optimized (no further reduction possible)',
+    compressStartBtn: 'Compress Now',
+    compressDownloadBtn: 'Download Compressed',
+
+    // PDF to Images modal
+    pdf2imgModalTitle: 'Convert PDF Pages to Images',
+    pdf2imgModalDesc: 'Render and extract each page as high-resolution PNG or JPG image.',
+    pdf2imgFormatLabel: 'Image Format',
+    pdf2imgDpiLabel: 'Resolution (DPI)',
+    pdf2imgBtn: 'Extract & Download ZIP',
+
+    // Images to PDF modal
+    img2pdfModalTitle: 'Convert Images to PDF',
+    img2pdfModalDesc: 'Combine multiple JPG, PNG, WebP images into a single clean PDF document.',
+    img2pdfSizingLabel: 'Page Sizing',
+    img2pdfFitA4: 'Fit to standard A4 (Centered)',
+    img2pdfFitOriginal: 'Preserve image original dimensions',
+    img2pdfSelectBtn: 'Select Images',
+    img2pdfConvertBtn: 'Convert & Add to Studio',
+
+    // Extract text modal
+    extractTextModalTitle: 'Extract Selectable Text',
+    extractTextCopyBtn: 'Copy Text',
+    extractTextCopiedBtn: 'Copied!',
+    extractTextDownloadBtn: 'Download .txt',
+    extractTextEmpty: '[No selectable text found in this document]',
+
+    // Password modal
+    passwordModalTitle: 'Password Protected PDF',
+    passwordModalDesc: 'Enter the document password to open {name}:',
+    passwordPlaceholder: 'Document password',
+    passwordUnlockBtn: 'Unlock & Import',
+
+    // Lightbox modal
+    lightboxTitle: 'High-Resolution Page Preview',
+    lightboxFineTextHint: 'Crisp vector rendering for fine text, legal contracts, and architectural blueprints',
+    lightboxZoomIn: 'Zoom In (+)',
+    lightboxZoomOut: 'Zoom Out (-)',
+    lightboxResetZoom: 'Reset Zoom (100%)',
+    lightboxFitPage: 'Fit to Screen',
+    lightboxPrevPage: 'Previous Page (←)',
+    lightboxNextPage: 'Next Page (→)',
+    lightboxRotate: 'Rotate 90° (R)',
+    lightboxClose: 'Close (Esc)',
+    lightboxPageCounter: 'Page {current} of {total}',
+
+    // Toasts & Alerts
+    toastSessionRestored: 'Restored previous session',
+    toastWorkspaceCleared: 'Workspace cleared',
+    toastImportSuccess: 'Imported {count} pages successfully!',
+    toastExportSuccess: 'Exported {count} pages successfully!',
+    toastSelectDocFirst: 'Please select a PDF document first.',
+    toastUploadPdfOrImg: 'Please upload PDF or Image files.',
+    toastMinPagesToSplit: 'At least 2 pages are required to split.',
+    toastNoPagesToExport: 'No pages to export.',
+    toastPageRemoved: 'Page removed',
+    toastPagesRemoved: 'Removed {count} pages',
+    toastUndo: 'Undo',
+    toastPagesRestored: 'Restored {count} pages!',
+    toastRotatedAll: 'Rotated all {count} pages (+{deg}°)',
+    toastRotatedSelected: 'Rotated {count} selected pages (+{deg}°)',
+    toastAppInstalled: 'mePDF installed successfully!',
+    toastOfflineReady: 'mePDF is installed and ready for offline use!',
+    toastOfflineActive: 'Offline mode active. All mePDF tools work 100% locally!',
+    toastOnlineActive: 'Internet connection restored.',
+    toastLanguageSwitched: 'Switched language to English',
+  },
+  th: {
+    // Brand
+    brandName: 'mePDF',
+    brandBadge: 'ประมวลผลบนเครื่อง 100%',
+
+    // Navbar
+    tabStudio: 'Visual Studio (รวมและจัดหน้า)',
+    tabSplit: 'แยกหน้า PDF',
+    tabCompress: 'บีบอัดไฟล์',
+    tabImg2Pdf: 'รูปภาพเป็น PDF',
+    tabPdf2Img: 'PDF เป็นรูปภาพ',
+    tabExtractText: 'ดึงข้อความ',
+    navInstall: 'ติดตั้งแอป',
+    navExport: 'ส่งออก PDF',
+    navExportCount: 'ส่งออก PDF ({count})',
+
+    // Dropzone
+    dropzoneTitle: 'ลากไฟล์ PDF หรือรูปภาพมาวางที่นี่',
+    dropzoneDesc:
+      'จัดเรียง รวม หมุน แยก หรือบีบอัดเอกสารได้ทันที ทำงานบนเบราว์เซอร์ของคุณ 100% ไม่ส่งข้อมูลออกไปภายนอก',
+    dropzoneSelectBtn: 'เลือกไฟล์',
+    dropzoneZeroUpload: 'ไม่ส่งไฟล์ขึ้นเซิร์ฟเวอร์ • ปลอดภัย 100%',
+    dropzoneUnlimitedSize: 'ไม่จำกัดขนาดไฟล์',
+    dropzoneSupportedFormats: 'PDF, JPG, PNG, WebP',
+    dropzoneForTool: 'วางไฟล์ PDF เพื่อใช้งาน {tool}',
+
+    // Toolbar
+    toolbarPagesCount: '{count} หน้า',
+    toolbarSinglePage: '1 หน้า',
+    toolbarSelectedOfTotal: 'เลือก {selected} จาก {total} หน้า',
+    toolbarSelectAll: 'เลือกทั้งหมด',
+    toolbarDeselectAll: 'ยกเลิกการเลือก',
+    toolbarInvert: 'สลับการเลือก',
+    toolbarRotateAll: 'หมุนทั้งหมด',
+    toolbarRotateSelected: 'หมุนหน้าที่เลือก',
+    toolbarSplit: 'แยกไฟล์',
+    toolbarDeleteSelected: 'ลบหน้าที่เลือก',
+    toolbarAddFiles: 'เพิ่มไฟล์',
+    toolbarClearAll: 'ล้างทั้งหมด',
+
+    // Cards
+    cardMoveLeft: 'ย้ายไปซ้าย',
+    cardMoveRight: 'ย้ายไปขวา',
+    cardRotateCw: 'หมุนตามเข็ม 90°',
+    cardZoomPreview: 'ดูตัวอย่างขยาย (ดับเบิลคลิก)',
+    cardDragReorder: 'ลากเพื่อจัดลำดับ',
+    cardDeletePage: 'ลบหน้านี้',
+    cardPagePrefix: 'หน้า {num}',
+
+    // Clear confirmation modal
+    clearModalTitle: 'ล้างพื้นที่ทำงาน',
+    clearModalDesc:
+      'คุณแน่ใจหรือไม่ว่าต้องการล้างทุกหน้าออกจากพื้นที่ทำงาน? เอกสารและการแก้ไขทั้งหมดจะถูกลบออก',
+    clearModalConfirm: 'ล้างทั้งหมด',
+    clearModalCancel: 'ยกเลิก',
+
+    // Split modal
+    splitModalTitle: 'แยกหน้าเอกสาร',
+    splitModeLabel: 'โหมดการแยก',
+    splitModeEach: 'แยกทุกหน้าเป็นไฟล์ PDF เดี่ยว',
+    splitModeRanges: 'กำหนดช่วงหน้า (เช่น 1-3, 4-6, 7)',
+    splitModeSelected: 'แยกเฉพาะหน้าที่เลือกไว้ ({count} หน้า)',
+    splitRangesLabel: 'ช่วงของหน้า',
+    splitRangesPlaceholder: 'เช่น 1-2, 3-5, 6',
+    splitRangesHint: 'คั่นแต่ละช่วงด้วยเครื่องหมายจุลภาค (,) หรืออัฒภาค (;)',
+    splitBtn: 'แยกไฟล์และดาวน์โหลด ZIP',
+
+    // Compress modal
+    compressModalTitle: 'บีบอัด PDF อัจฉริยะ',
+    compressModalDesc:
+      'ลดขนาดภาพสแกนความละเอียดสูงและปรับโครงสร้างหน้าบนเบราว์เซอร์ของคุณโดยตรง ไม่มีการส่งไฟล์ขึ้นเซิร์ฟเวอร์',
+    compressPresetLabel: 'รูปแบบการบีบอัด',
+    compressPresetScreen: 'หน้าจอ (Screen)',
+    compressPresetScreenDesc: '96 DPI • ลดขนาดสูงสุด',
+    compressPresetEbook: 'อีบุ๊ก (Ebook)',
+    compressPresetEbookDesc: '150 DPI • คมชัดสมดุล',
+    compressPresetPrint: 'งานพิมพ์ (Print)',
+    compressPresetPrintDesc: '300 DPI • คุณภาพสูงสำหรับพิมพ์',
+    compressQualitySlider: 'ระดับคุณภาพ',
+    compressMaxSavings: 'บีบอัดสูงสุด (10%)',
+    compressBalanced: 'สมดุล (75%)',
+    compressMaxQuality: 'คุณภาพสูงสุด (95%)',
+    compressCurrentSize: 'ขนาดไฟล์ปัจจุบัน',
+    compressOptimizedSize: 'ขนาดหลังบีบอัด',
+    compressTargetDpi: 'DPI เป้าหมาย: {dpi} DPI',
+    compressEstSavings: 'ประมาณการลดขนาด: ~40% - 75%',
+    compressSavedInfo: 'ประหยัดพื้นที่ {saved} (เล็กลง {percent}%)',
+    compressAlreadyOptimal: 'ไฟล์มีขนาดกะทัดรัดอยู่แล้ว (ไม่สามารถลดขนาดลงได้อีก)',
+    compressStartBtn: 'บีบอัดทันที',
+    compressDownloadBtn: 'ดาวน์โหลดไฟล์บีบอัด',
+
+    // PDF to Images modal
+    pdf2imgModalTitle: 'แปลงหน้า PDF เป็นรูปภาพ',
+    pdf2imgModalDesc: 'เรนเดอร์และสกัดแต่ละหน้าเป็นภาพ PNG หรือ JPG ความละเอียดสูง',
+    pdf2imgFormatLabel: 'ฟอร์แมตรูปภาพ',
+    pdf2imgDpiLabel: 'ความละเอียด (DPI)',
+    pdf2imgBtn: 'สกัดและดาวน์โหลด ZIP',
+
+    // Images to PDF modal
+    img2pdfModalTitle: 'แปลงรูปภาพเป็น PDF',
+    img2pdfModalDesc: 'รวมไฟล์รูปภาพ JPG, PNG, WebP เข้าเป็นเอกสาร PDF ฉบับเดียว',
+    img2pdfSizingLabel: 'ขนาดหน้ากระดาษ',
+    img2pdfFitA4: 'พอดีกระดาษ A4 มาตรฐาน (กึ่งกลาง)',
+    img2pdfFitOriginal: 'คงขนาดตามสัดส่วนภาพเดิม',
+    img2pdfSelectBtn: 'เลือกรูปภาพ',
+    img2pdfConvertBtn: 'แปลงและเพิ่มลงใน Visual Studio',
+
+    // Extract text modal
+    extractTextModalTitle: 'ดึงข้อความจาก PDF',
+    extractTextCopyBtn: 'คัดลอกข้อความ',
+    extractTextCopiedBtn: 'คัดลอกแล้ว!',
+    extractTextDownloadBtn: 'ดาวน์โหลด .txt',
+    extractTextEmpty: '[ไม่พบข้อความที่เลือกได้ในเอกสารนี้]',
+
+    // Password modal
+    passwordModalTitle: 'PDF มีรหัสผ่านป้องกัน',
+    passwordModalDesc: 'กรุณากรอกรหัสผ่านเพื่อเปิด {name}:',
+    passwordPlaceholder: 'รหัสผ่านเอกสาร',
+    passwordUnlockBtn: 'ปลดล็อกและนำเข้า',
+
+    // Lightbox modal
+    lightboxTitle: 'ดูตัวอย่างหน้าเอกสารความละเอียดสูง',
+    lightboxFineTextHint: 'เรนเดอร์เวกเตอร์ความคมชัดสูงสำหรับอ่านตัวอักษรขนาดเล็ก สัญญา และแบบแปลนสถาปัตยกรรม/วิศวกรรม',
+    lightboxZoomIn: 'ขยาย (+)',
+    lightboxZoomOut: 'ย่อ (-)',
+    lightboxResetZoom: 'รีเซ็ตขนาด (100%)',
+    lightboxFitPage: 'พอดีหน้าจอ',
+    lightboxPrevPage: 'หน้าก่อนหน้า (←)',
+    lightboxNextPage: 'หน้าถัดไป (→)',
+    lightboxRotate: 'หมุน 90° (R)',
+    lightboxClose: 'ปิด (Esc)',
+    lightboxPageCounter: 'หน้า {current} จากทั้งหมด {total}',
+
+    // Toasts & Alerts
+    toastSessionRestored: 'กู้คืนพื้นที่ทำงานจากเซสชันก่อนหน้าแล้ว',
+    toastWorkspaceCleared: 'ล้างพื้นที่ทำงานแล้ว',
+    toastImportSuccess: 'นำเข้า {count} หน้าสำเร็จ!',
+    toastExportSuccess: 'ส่งออก {count} หน้าสำเร็จ!',
+    toastSelectDocFirst: 'กรุณาเลือกเอกสาร PDF ก่อน',
+    toastUploadPdfOrImg: 'กรุณาเลือกไฟล์ PDF หรือรูปภาพ',
+    toastMinPagesToSplit: 'ต้องมีอย่างน้อย 2 หน้าจึงจะแยกไฟล์ได้',
+    toastNoPagesToExport: 'ไม่มีหน้าเอกสารที่จะส่งออก',
+    toastPageRemoved: 'ลบหน้าแล้ว',
+    toastPagesRemoved: 'ลบ {count} หน้าแล้ว',
+    toastUndo: 'เลิกทำ',
+    toastPagesRestored: 'กู้คืน {count} หน้าแล้ว!',
+    toastRotatedAll: 'หมุนเอกสารทั้งหมด {count} หน้า (+{deg}°)',
+    toastRotatedSelected: 'หมุนหน้าที่เลือก {count} หน้า (+{deg}°)',
+    toastAppInstalled: 'ติดตั้ง mePDF เรียบร้อยแล้ว!',
+    toastOfflineReady: 'mePDF พร้อมใช้งานแบบออฟไลน์ 100% แล้ว!',
+    toastOfflineActive: 'เข้าสู่โหมดออฟไลน์ ทุกฟังก์ชันทำงานบนเครื่อง 100%!',
+    toastOnlineActive: 'เชื่อมต่ออินเทอร์เน็ตแล้ว',
+    toastLanguageSwitched: 'เปลี่ยนภาษาเป็นภาษาไทยแล้ว',
+  },
+};
+
+export type TranslationKey = keyof typeof translations.en;
+
+const STORAGE_KEY = 'mepdf_lang';
+let currentLang: Language = 'th'; // Default to Thai for local users, or detected
+
+// Initialize language preference
+function getInitialLanguage(): Language {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === 'th' || stored === 'en') return stored;
+    }
+    if (typeof navigator !== 'undefined' && navigator.language) {
+      if (navigator.language.toLowerCase().startsWith('th')) return 'th';
+    }
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+  return 'en';
+}
+
+currentLang = getInitialLanguage();
+
+const listeners = new Set<(lang: Language) => void>();
+
+export function getLanguage(): Language {
+  return currentLang;
+}
+
+export function setLanguage(lang: Language): void {
+  currentLang = lang;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, lang);
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang;
+    }
+  } catch {
+    // Safe fallback
+  }
+
+  listeners.forEach((fn) => {
+    try {
+      fn(lang);
+    } catch (e) {
+      console.error('Error in i18n listener:', e);
+    }
+  });
+}
+
+export function onLanguageChange(listener: (lang: Language) => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function t(key: TranslationKey, params?: Record<string, string | number>): string {
+  const dict = translations[currentLang] || translations.en;
+  let text = dict[key] || translations.en[key] || key;
+
+  if (params) {
+    for (const [paramKey, value] of Object.entries(params)) {
+      text = text.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(value));
+    }
+  }
+
+  return text;
+}
