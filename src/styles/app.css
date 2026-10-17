@@ -1417,6 +1417,23 @@ textarea:focus-visible,
   background: var(--danger-bg);
 }
 
+/* Modal Stacking Z-Index Hierarchy */
+.cloud-library-modal-overlay {
+  z-index: 110;
+}
+
+.save-cloud-modal-overlay {
+  z-index: 115;
+}
+
+.auth-modal-overlay {
+  z-index: 130;
+}
+
+#app-modal-overlay {
+  z-index: 140;
+}
+
 /* Auth Modal Styling */
 .auth-modal-card {
   max-width: 440px;

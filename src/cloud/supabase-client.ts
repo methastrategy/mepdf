@@ -187,9 +187,27 @@ class MockAuthClient {
   }
 }
 
-class MockStorageBucket {
+export class MockStorageBucket {
   private static memoryFiles = new Map<string, { bytes: Uint8Array; mimeType: string }>();
   private readonly PREFIX = 'mepdf_mock_storage_';
+
+  static clearStore(): void {
+    MockStorageBucket.memoryFiles.clear();
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('mepdf_mock_storage_')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      }
+    } catch {
+      // safe
+    }
+  }
 
   async upload(path: string, fileBody: Uint8Array | Blob | ArrayBuffer, _options?: any): Promise<{ data: { path: string } | null; error: any }> {
     let bytes: Uint8Array;
@@ -239,13 +257,17 @@ class MockStorageBucket {
     return { data: paths, error: null };
   }
 
-  createSignedUrl(path: string, _expiresIn: number): { data: { signedUrl: string } | null; error: null } {
+  createSignedUrl(path: string, _expiresIn: number): Promise<{ data: { signedUrl: string } | null; error: null }> & { data: { signedUrl: string } | null; error: null } {
     const file = MockStorageBucket.memoryFiles.get(path);
     let blobUrl = '#';
     if (file && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
       blobUrl = URL.createObjectURL(new Blob([file.bytes as any], { type: 'application/pdf' }));
     }
-    return { data: { signedUrl: blobUrl }, error: null };
+    const result = { data: { signedUrl: blobUrl }, error: null };
+    const promise = Promise.resolve(result) as any;
+    promise.data = result.data;
+    promise.error = result.error;
+    return promise;
   }
 }
 
@@ -264,8 +286,7 @@ export class MockQueryBuilder {
   private static memoryStore = new Map<string, any[]>();
   private tableName: string;
   private filters: Array<{ col: string; val: any }> = [];
-  private orderField: string | null = null;
-  private orderAsc = true;
+  private orderClauses: Array<{ field: string; asc: boolean }> = [];
   private action: 'select' | 'insert' | 'update' | 'delete' = 'select';
   private payload: any = null;
   private isSingle = false;
@@ -277,6 +298,20 @@ export class MockQueryBuilder {
 
   static clearStore(): void {
     MockQueryBuilder.memoryStore.clear();
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('mepdf_mock_db_') || key.startsWith('mepdf_mock_storage_'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      }
+    } catch {
+      // safe
+    }
   }
 
   private getTableData(): any[] {
@@ -302,30 +337,28 @@ export class MockQueryBuilder {
     }
   }
 
-  select(_cols?: string): MockQueryBuilder {
-    const qb = new MockQueryBuilder(this.tableName);
-    qb.action = 'select';
-    return qb;
+  select(_cols?: string): this {
+    if (!this.action) {
+      this.action = 'select';
+    }
+    return this;
   }
 
-  insert(recordOrRecords: any | any[]): MockQueryBuilder {
-    const qb = new MockQueryBuilder(this.tableName);
-    qb.action = 'insert';
-    qb.payload = recordOrRecords;
-    return qb;
+  insert(recordOrRecords: any | any[]): this {
+    this.action = 'insert';
+    this.payload = recordOrRecords;
+    return this;
   }
 
-  update(patch: any): MockQueryBuilder {
-    const qb = new MockQueryBuilder(this.tableName);
-    qb.action = 'update';
-    qb.payload = patch;
-    return qb;
+  update(patch: any): this {
+    this.action = 'update';
+    this.payload = patch;
+    return this;
   }
 
-  delete(): MockQueryBuilder {
-    const qb = new MockQueryBuilder(this.tableName);
-    qb.action = 'delete';
-    return qb;
+  delete(): this {
+    this.action = 'delete';
+    return this;
   }
 
   eq(column: string, value: any): this {
@@ -334,8 +367,10 @@ export class MockQueryBuilder {
   }
 
   order(column: string, options?: { ascending?: boolean }): this {
-    this.orderField = column;
-    this.orderAsc = options?.ascending ?? true;
+    this.orderClauses.push({
+      field: column,
+      asc: options?.ascending ?? true,
+    });
     return this;
   }
 
@@ -376,8 +411,13 @@ export class MockQueryBuilder {
         return r;
       });
       this.saveTableData(rows);
-      const res = this.isSingle ? (updatedRows[0] ?? null) : updatedRows;
-      return { data: res, error: null };
+      if (this.isSingle) {
+        if (updatedRows.length === 0) {
+          return { data: null, error: { message: 'Document not found' } };
+        }
+        return { data: updatedRows[0], error: null };
+      }
+      return { data: updatedRows, error: null };
     }
 
     if (this.action === 'delete') {
@@ -398,12 +438,17 @@ export class MockQueryBuilder {
     for (const f of this.filters) {
       rows = rows.filter((r) => r[f.col] === f.val);
     }
-    if (this.orderField) {
-      const field = this.orderField;
-      const asc = this.orderAsc;
+    if (this.orderClauses.length > 0) {
       rows.sort((a, b) => {
-        if (a[field] < b[field]) return asc ? -1 : 1;
-        if (a[field] > b[field]) return asc ? 1 : -1;
+        for (const clause of this.orderClauses) {
+          const field = clause.field;
+          const valA = a[field];
+          const valB = b[field];
+          if (valA !== valB) {
+            if (valA < valB) return clause.asc ? -1 : 1;
+            if (valA > valB) return clause.asc ? 1 : -1;
+          }
+        }
         return 0;
       });
     }
@@ -454,7 +499,15 @@ if (hasCredentials) {
   mockModeActive = true;
 }
 
-export const supabase: SupabaseClient = clientInstance as SupabaseClient;
+/**
+ * Dynamic proxy to clientInstance so that setMockClientForTesting or runtime initialization
+ * always routes through the active client without stale module reference binding.
+ */
+export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return clientInstance[prop];
+  },
+});
 
 /**
  * Returns true if the client is currently running in offline / mock fallback mode

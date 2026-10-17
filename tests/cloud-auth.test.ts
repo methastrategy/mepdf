@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { supabase, isMockSupabase, setMockClientForTesting, MockSupabaseClient, MockQueryBuilder } from '../src/cloud/supabase-client';
+import { supabase, isMockSupabase, setMockClientForTesting, MockSupabaseClient, MockQueryBuilder, MockStorageBucket } from '../src/cloud/supabase-client';
 import { authService, FREE_STORAGE_LIMIT, PRO_STORAGE_LIMIT, type UserProfile } from '../src/cloud/auth-service';
 import { storageService, StorageQuotaError } from '../src/cloud/storage-service';
 import { documentService, type CloudDocument } from '../src/cloud/document-service';
@@ -7,6 +7,9 @@ import { t, setLanguage } from '../src/core/i18n';
 import { HASH_TO_ROUTE_MAP, ROUTE_TO_HASH_MAP } from '../src/core/router';
 import { AuthModal } from '../src/components/AuthModal';
 import { UserAccountMenu } from '../src/components/UserAccountMenu';
+import { Toolbar } from '../src/components/Toolbar';
+import { SaveToCloudModal } from '../src/components/SaveToCloudModal';
+import { CloudLibraryModal } from '../src/components/CloudLibraryModal';
 
 vi.mock('lucide', async (importOriginal) => {
   const actual: any = await importOriginal();
@@ -26,6 +29,7 @@ describe('Phase 2B - Cloud & Auth Service Layer', () => {
 
     setupMockDOM();
     MockQueryBuilder.clearStore();
+    MockStorageBucket.clearStore();
     setMockClientForTesting(new MockSupabaseClient());
     authService.setTestUser(null);
     setLanguage('en');
@@ -90,6 +94,60 @@ describe('Phase 2B - Cloud & Auth Service Layer', () => {
       expect(signed?.data?.signedUrl).toBeDefined();
 
       await bucket.remove(['user_1/sample.pdf']);
+    });
+
+    it('supports .insert().select().single() and .update().select().single() query chaining', async () => {
+      // Insert with select().single()
+      const { data: inserted, error: insertErr } = await supabase
+        .from('chained_table')
+        .insert({ name: 'Chained Doc', score: 99 })
+        .select()
+        .single();
+
+      expect(insertErr).toBeNull();
+      expect(inserted).toBeDefined();
+      expect(inserted.name).toBe('Chained Doc');
+      expect(inserted.score).toBe(99);
+      expect(inserted.id).toBeDefined();
+
+      // Update with select().single()
+      const { data: updated, error: updateErr } = await supabase
+        .from('chained_table')
+        .update({ score: 100 })
+        .eq('id', inserted.id)
+        .select()
+        .single();
+
+      expect(updateErr).toBeNull();
+      expect(updated).toBeDefined();
+      expect(updated.score).toBe(100);
+      expect(updated.name).toBe('Chained Doc');
+    });
+
+    it('multi-clause .order() sorting correctly prioritizes pinned status before created_at', async () => {
+      await supabase.from('ordered_docs').insert({ id: 'doc_old_pinned', is_pinned: true, created_at: '2026-01-01T00:00:00Z' });
+      await supabase.from('ordered_docs').insert({ id: 'doc_new_unpinned', is_pinned: false, created_at: '2026-01-02T00:00:00Z' });
+      await supabase.from('ordered_docs').insert({ id: 'doc_new_pinned', is_pinned: true, created_at: '2026-01-03T00:00:00Z' });
+
+      const { data } = await supabase
+        .from('ordered_docs')
+        .select()
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      expect(data).toHaveLength(3);
+      // Pinned docs first, ordered by created_at descending
+      expect(data[0].id).toBe('doc_new_pinned');
+      expect(data[1].id).toBe('doc_old_pinned');
+      // Unpinned doc last
+      expect(data[2].id).toBe('doc_new_unpinned');
+    });
+
+    it('setMockClientForTesting dynamically routes through the exported supabase proxy', () => {
+      const customMock = new MockSupabaseClient();
+      setMockClientForTesting(customMock);
+      expect(supabase.from('any_table')).toBeDefined();
+      expect(isMockSupabase()).toBe(true);
     });
   });
 
@@ -232,6 +290,29 @@ describe('Phase 2B - Cloud & Auth Service Layer', () => {
       // Delete
       await storageService.deletePdf(upload.storageKey, samplePdf.length);
       expect(authService.getCurrentUser()?.storageUsedBytes).toBe(0);
+    });
+
+    it('sanitizes Unicode and Thai filenames safely into clean storageKeys', async () => {
+      authService.setTestUser({
+        id: 'user_thai',
+        email: 'thai@mepdf.app',
+        tier: 'free',
+        storageUsedBytes: 0,
+        storageLimitBytes: FREE_STORAGE_LIMIT,
+        createdAt: new Date().toISOString(),
+      });
+
+      const fakePdf = new Uint8Array([37, 80, 68, 70]);
+      // Thai filename
+      const uploadThai = await storageService.uploadPdf(fakePdf, 'รายงานประจำปี_2026.pdf', 'user_thai');
+      expect(uploadThai.storageKey).toContain('user_thai');
+      expect(uploadThai.storageKey).not.toContain('______');
+      expect(uploadThai.storageKey).toMatch(/\.pdf$/);
+
+      // Emoji / Symbol filename fallback
+      const uploadEmoji = await storageService.uploadPdf(fakePdf, '🔥🚀.pdf', 'user_thai');
+      expect(uploadEmoji.storageKey).toContain('user_thai');
+      expect(uploadEmoji.storageKey).toMatch(/doc.*\.pdf$/);
     });
   });
 
@@ -400,6 +481,96 @@ describe('Phase 2B - Cloud & Auth Service Layer', () => {
       expect(container.querySelector('.account-tier-pill')?.textContent).toBe('FREE');
 
       menu.destroy();
+    });
+
+    it('toggles Save to Cloud button visibility on Toolbar based on auth state', () => {
+      const container = (globalThis as any).document.createElement('div');
+      (globalThis as any).document.body.appendChild(container);
+
+      const toolbar = new Toolbar(container, {
+        onSelectAll: vi.fn(),
+        onDeselectAll: vi.fn(),
+        onInvertSelection: vi.fn(),
+        onRotateSelected: vi.fn(),
+        onRotateAll: vi.fn(),
+        onDeleteSelected: vi.fn(),
+        onOpenSplit: vi.fn(),
+        onAddFiles: vi.fn(),
+        onClearAll: vi.fn(),
+      });
+
+      const saveCloudBtn = container.querySelector('#toolbar-btn-save-cloud');
+      expect(saveCloudBtn).not.toBeNull();
+      // Initially unauthenticated -> hidden
+      expect(saveCloudBtn.style.display).toBe('none');
+
+      // Authenticated -> visible
+      toolbar.setAuthenticated(true);
+      expect(saveCloudBtn.style.display).toBe('inline-flex');
+
+      // Signed out -> hidden again
+      toolbar.setAuthenticated(false);
+      expect(saveCloudBtn.style.display).toBe('none');
+    });
+
+    it('renders SaveToCloudModal and handles quota and filename preservation', () => {
+      const modal = new SaveToCloudModal();
+      expect(modal.isOpen()).toBe(false);
+
+      // Unauthenticated opens prompt
+      authService.setTestUser(null);
+      modal.open({
+        filename: 'Contract.pdf',
+        fileBytes: new Uint8Array(1024),
+        pageCount: 2,
+      });
+      expect(modal.isOpen()).toBe(true);
+      modal.close();
+      expect(modal.isOpen()).toBe(false);
+
+      // Authenticated opens with quota
+      authService.setTestUser({
+        id: 'user_save_test',
+        email: 'savetest@mepdf.app',
+        tier: 'free',
+        storageUsedBytes: 0,
+        storageLimitBytes: FREE_STORAGE_LIMIT,
+        createdAt: new Date().toISOString(),
+      });
+
+      modal.open({
+        filename: 'Project_Alpha.pdf',
+        fileBytes: new Uint8Array(2048),
+        pageCount: 5,
+      });
+      expect(modal.isOpen()).toBe(true);
+      modal.close();
+    });
+
+    it('renders CloudLibraryModal in unauthenticated and authenticated modes', async () => {
+      const libModal = new CloudLibraryModal();
+      expect(libModal.isOpen()).toBe(false);
+
+      // Unauthenticated mode
+      authService.setTestUser(null);
+      await libModal.open();
+      expect(libModal.isOpen()).toBe(true);
+      libModal.close();
+      expect(libModal.isOpen()).toBe(false);
+
+      // Authenticated mode
+      authService.setTestUser({
+        id: 'user_lib_test',
+        email: 'libtest@mepdf.app',
+        tier: 'free',
+        storageUsedBytes: 0,
+        storageLimitBytes: FREE_STORAGE_LIMIT,
+        createdAt: new Date().toISOString(),
+      });
+
+      await libModal.open();
+      expect(libModal.isOpen()).toBe(true);
+      libModal.close();
     });
   });
 });

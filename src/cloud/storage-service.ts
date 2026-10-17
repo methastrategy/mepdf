@@ -43,7 +43,9 @@ class StorageService {
       );
     }
 
-    const sanitizedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const rawBase = filename.replace(/\.[^/.]+$/, '');
+    const cleanBase = rawBase.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_{2,}/g, '_').replace(/^_|_$/g, '');
+    const sanitizedName = cleanBase.length > 0 ? `${cleanBase}.pdf` : `document_${Date.now()}.pdf`;
     const storageKey = `${userId}/${Date.now()}_${sanitizedName}`;
 
     // Upload using Supabase storage (or mock adapter)

@@ -298,6 +298,7 @@ export class SaveToCloudModal {
 
       const isPinned = Boolean(pinCheckbox?.checked);
 
+      this.currentOptions.filename = finalName;
       this.isSaving = true;
       this.render();
 

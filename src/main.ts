@@ -37,6 +37,7 @@ import { t, getLanguage, setLanguage, onLanguageChange } from './core/i18n';
 import { saveWorkspaceState, loadWorkspaceState, clearWorkspaceState } from './core/workspace-storage';
 import { getCurrentRoute, setHashRoute, onHashChange, type ToolRoute } from './core/router';
 import type { CloudDocument } from './cloud/document-service';
+import { authService } from './cloud/auth-service';
 import { authModal } from './components/AuthModal';
 import { UserAccountMenu } from './components/UserAccountMenu';
 import { cloudLibraryModal } from './components/CloudLibraryModal';
@@ -251,8 +252,15 @@ class MePdfApp {
 
     // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
-      // Inhibit all workspace keyboard shortcuts when a modal dialog, progress overlay, or lightbox is active
-      if (modal.isOpen() || progressOverlay.isOpen() || (this.lightboxModal && this.lightboxModal.isOpen())) return;
+      // Inhibit all workspace keyboard shortcuts when any modal dialog, progress overlay, or lightbox is active
+      if (
+        modal.isOpen() ||
+        progressOverlay.isOpen() ||
+        (this.lightboxModal && this.lightboxModal.isOpen()) ||
+        authModal.isOpen() ||
+        cloudLibraryModal.isOpen() ||
+        saveToCloudModal.isOpen()
+      ) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
@@ -331,6 +339,7 @@ class MePdfApp {
 
     cloudLibraryModal.setOptions({
       onOpenInStudio: async (doc, bytes) => this.loadCloudDocument(doc, bytes),
+      onClose: () => this.resetNavTabToStudio(),
     });
 
     const controlsContainer = this.appEl.querySelector<HTMLElement>('#workspace-controls')!;
@@ -347,6 +356,11 @@ class MePdfApp {
       onAddFiles: () => this.fileInput.click(),
       onClearAll: () => this.clearAll(),
       onSaveToCloud: () => this.handleSaveToCloud(),
+    });
+
+    this.toolbar.setAuthenticated(authService.isAuthenticated());
+    authService.onAuthStateChange((user) => {
+      this.toolbar?.setAuthenticated(Boolean(user));
     });
 
     this.visualGrid = new VisualGrid(gridContainer, {
@@ -914,9 +928,13 @@ class MePdfApp {
     }
 
     if (tab === 'account') {
-      authModal.open({
-        onClose: () => this.resetNavTabToStudio(),
-      });
+      if (authService.isAuthenticated()) {
+        cloudLibraryModal.open();
+      } else {
+        authModal.open({
+          onClose: () => this.resetNavTabToStudio(),
+        });
+      }
       return;
     }
 
@@ -1087,6 +1105,7 @@ class MePdfApp {
 
     // Re-render Toolbar, VisualGrid, and UserAccountMenu
     this.toolbar?.render();
+    this.toolbar?.setAuthenticated(authService.isAuthenticated());
     this.visualGrid?.setPages(this.pages);
     this.userAccountMenu?.render();
   }

@@ -14,7 +14,10 @@ import {
   FileText,
   Copy,
   ExternalLink,
+  Cloud,
 } from 'lucide';
+import { authService } from '../cloud/auth-service';
+import { authModal } from './AuthModal';
 import { documentService, type CloudDocument } from '../cloud/document-service';
 import { formatBytes, downloadBytes, escapeHtml } from '../utils/file-utils';
 import { t } from '../core/i18n';
@@ -98,10 +101,18 @@ export class CloudLibraryModal {
   }
 
   private async loadDocuments(): Promise<void> {
+    if (!authService.isAuthenticated()) {
+      this.documents = [];
+      this.isLoading = false;
+      this.render();
+      return;
+    }
+
     this.isLoading = true;
     this.render();
 
     try {
+      await documentService.cleanupExpiredDocuments();
       this.documents = await documentService.fetchUserDocuments();
     } catch (err: any) {
       console.error('Failed to load cloud docs:', err);
@@ -122,6 +133,7 @@ export class CloudLibraryModal {
   private render(): void {
     if (!this.overlay) return;
 
+    const isAuth = authService.isAuthenticated();
     const filtered = this.getFilteredDocuments();
     const countText = t('cloudLibDocCount', { count: this.documents.length });
 
@@ -146,7 +158,7 @@ export class CloudLibraryModal {
           </div>
         </div>
 
-        <div class="cloud-library-search-bar">
+        <div class="cloud-library-search-bar" style="${isAuth ? '' : 'display: none;'}">
           <div class="search-input-wrap">
             <i data-lucide="search" style="width: 16px; height: 16px;"></i>
             <input
@@ -161,7 +173,21 @@ export class CloudLibraryModal {
 
         <div class="modal-body cloud-library-body" id="cloud-library-list-container">
           ${
-            this.isLoading
+            !isAuth
+              ? `
+            <div class="cloud-library-empty cloud-library-unauth">
+              <div class="empty-icon-wrap">
+                <i data-lucide="cloud" style="width: 44px; height: 44px; color: var(--primary);"></i>
+              </div>
+              <h4 class="empty-title">Sign in to view your Cloud Library</h4>
+              <p class="empty-desc">${t('authSignInPrompt')}</p>
+              <button class="btn btn-primary" id="cloud-lib-signin-btn" style="margin-top: 0.5rem;">
+                <i data-lucide="cloud" style="width: 16px; height: 16px;"></i>
+                <span>${t('authSignInBtn')}</span>
+              </button>
+            </div>
+          `
+              : this.isLoading
               ? `
             <div class="cloud-library-loading">
               <i data-lucide="refresh-cw" class="spin-icon" style="width: 32px; height: 32px; color: var(--primary);"></i>
@@ -297,6 +323,7 @@ export class CloudLibraryModal {
         FileText,
         Copy,
         ExternalLink,
+        Cloud,
       },
       nameAttr: 'data-lucide',
     });
@@ -312,6 +339,16 @@ export class CloudLibraryModal {
     // Refresh button
     const refreshBtn = this.overlay.querySelector('#cloud-refresh-btn');
     refreshBtn?.addEventListener('click', () => this.loadDocuments());
+
+    // Unauthenticated sign-in button
+    const signInBtn = this.overlay.querySelector('#cloud-lib-signin-btn');
+    signInBtn?.addEventListener('click', () => {
+      authModal.open({
+        onSuccess: async () => {
+          await this.loadDocuments();
+        },
+      });
+    });
 
     // Search input
     const searchInput = this.overlay.querySelector<HTMLInputElement>('#cloud-search-input');
@@ -402,8 +439,16 @@ export class CloudLibraryModal {
 
         try {
           const url = await documentService.getDocumentDownloadUrl(doc);
-          if (navigator.clipboard) {
-            await navigator.clipboard.writeText(url);
+          let copied = false;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+              await navigator.clipboard.writeText(url);
+              copied = true;
+            } catch {
+              // Insecure context or permission denied fallback
+            }
+          }
+          if (copied) {
             toast.show(t('cloudLibShareCopied'), 'success');
           } else {
             prompt('Copy share link:', url);

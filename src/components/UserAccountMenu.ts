@@ -13,6 +13,7 @@ import { formatBytes } from '../utils/file-utils';
 import { t } from '../core/i18n';
 import { toast } from './Toast';
 import { authModal } from './AuthModal';
+import { setHashRoute } from '../core/router';
 
 export interface UserAccountMenuOptions {
   onOpenCloudLibrary?: () => void;
@@ -188,6 +189,7 @@ export class UserAccountMenu {
       const libBtn = this.container.querySelector('#account-cloud-lib-btn');
       libBtn?.addEventListener('click', () => {
         this.closeDropdown();
+        setHashRoute('cloud-library');
         if (this.options.onOpenCloudLibrary) {
           this.options.onOpenCloudLibrary();
         }

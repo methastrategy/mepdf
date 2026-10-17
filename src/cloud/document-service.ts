@@ -101,10 +101,11 @@ class DocumentService {
       expires_at: expiresAt,
     };
 
-    // 2. Insert metadata record
+    // 2. Insert metadata record (chain .select() to request representation from PostgREST)
     const { data, error } = await supabase
       .from('documents')
       .insert(docRecord)
+      .select()
       .single();
 
     if (error || !data) {
@@ -144,6 +145,7 @@ class DocumentService {
         expires_at: nextExpiresAt,
       })
       .eq('id', documentId)
+      .select()
       .single();
 
     if (error || !data) {

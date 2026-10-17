@@ -22,8 +22,10 @@ export class Toolbar {
   private splitBtn: HTMLButtonElement | null = null;
   private selectAllBtn: HTMLButtonElement | null = null;
   private rotateSelectedBtn: HTMLButtonElement | null = null;
+  private saveCloudBtn: HTMLButtonElement | null = null;
   private totalPages = 0;
   private selectedCount = 0;
+  private isAuthenticated = false;
 
   constructor(container: HTMLElement, events: ToolbarEvents) {
     this.container = container;
@@ -96,9 +98,11 @@ export class Toolbar {
     this.splitBtn = this.container.querySelector('#toolbar-btn-split');
     this.selectAllBtn = this.container.querySelector('#toolbar-btn-select-all');
     this.rotateSelectedBtn = this.container.querySelector('#toolbar-btn-rotate-selected');
+    this.saveCloudBtn = this.container.querySelector('#toolbar-btn-save-cloud');
 
     this.attachEventListeners();
     this.refreshIcons();
+    this.updateCloudButtonVisibility();
     this.updateState(this.totalPages, this.selectedCount);
   }
 
@@ -204,6 +208,19 @@ export class Toolbar {
       this.splitBtn.disabled = totalPages < 2;
       this.splitBtn.style.opacity = totalPages < 2 ? '0.5' : '1';
       this.splitBtn.style.pointerEvents = totalPages < 2 ? 'none' : 'auto';
+    }
+
+    this.updateCloudButtonVisibility();
+  }
+
+  setAuthenticated(isAuthenticated: boolean): void {
+    this.isAuthenticated = isAuthenticated;
+    this.updateCloudButtonVisibility();
+  }
+
+  private updateCloudButtonVisibility(): void {
+    if (this.saveCloudBtn) {
+      this.saveCloudBtn.style.display = this.isAuthenticated ? 'inline-flex' : 'none';
     }
   }
 }
