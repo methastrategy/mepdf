@@ -1,5 +1,6 @@
 import { createIcons, RotateCw, Trash2, GripVertical, ChevronLeft, ChevronRight } from 'lucide';
 import type { PDFPageItem } from '../core/types';
+import { escapeHtml } from '../utils/file-utils';
 
 export interface VisualGridEvents {
   onToggleSelect: (pageId: string) => void;
@@ -62,7 +63,7 @@ export class VisualGrid {
            draggable="true">
         
         <div class="page-card-header">
-          <label class="page-card-label" title="${page.docName} - Page ${page.displayPageNumber}">
+          <label class="page-card-label" title="${escapeHtml(page.docName)} - Page ${page.displayPageNumber}">
             <input type="checkbox" class="page-select-checkbox" ${isSelected ? 'checked' : ''} data-page-id="${page.id}" />
             <span>P.${page.displayPageNumber}</span>
           </label>

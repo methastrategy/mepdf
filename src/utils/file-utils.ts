@@ -50,3 +50,15 @@ export async function readFileAsUint8Array(file: File): Promise<Uint8Array> {
 export function getFileBaseName(filename: string): string {
   return filename.replace(/\.[^/.]+$/, '');
 }
+
+/**
+ * Safely escapes HTML special characters to prevent DOM-based XSS attacks
+ */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

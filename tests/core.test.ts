@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PDFDocument, degrees } from 'pdf-lib';
 import { parseRangeExpression, mergePages, splitPagesByRanges } from '../src/core/pdf-operations';
-import { formatBytes, getFileBaseName } from '../src/utils/file-utils';
+import { formatBytes, getFileBaseName, escapeHtml } from '../src/utils/file-utils';
 import type { PDFPageItem, DocumentMetadata } from '../src/core/types';
 
 describe('formatBytes utility', () => {
@@ -17,6 +17,13 @@ describe('formatBytes utility', () => {
 
   it('handles custom decimal precision', () => {
     expect(formatBytes(1536, 2)).toBe('1.5 KB');
+  });
+});
+
+describe('escapeHtml utility', () => {
+  it('escapes dangerous HTML characters', () => {
+    expect(escapeHtml('<script>alert("xss")</script>')).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+    expect(escapeHtml("Tom & Jerry's")).toBe('Tom &amp; Jerry&#39;s');
   });
 });
 

@@ -1,6 +1,6 @@
 import { createIcons, X, Copy, Check, Download, FileText, Minimize2, Scissors, Image } from 'lucide';
 import JSZip from 'jszip';
-import { formatBytes, downloadBytes, downloadBlob } from '../utils/file-utils';
+import { formatBytes, downloadBytes, downloadBlob, escapeHtml } from '../utils/file-utils';
 import { COMPRESSION_PRESETS, compressPdf } from '../core/pdf-compressor';
 import {
   splitPagesByRanges,
@@ -368,9 +368,9 @@ export class ModalManager {
       const title = `<i data-lucide="file-text" style="width: 18px; height: 18px; color: var(--primary);"></i> Extracted Plain Text`;
       const bodyHtml = `
         <div style="font-size: 0.8125rem; color: var(--text-muted);">
-          Extracted ${text.length.toLocaleString()} characters from ${filename}.
+          Extracted ${text.length.toLocaleString()} characters from ${escapeHtml(filename)}.
         </div>
-        <textarea class="text-preview-box" id="extracted-text-area" readonly>${text}</textarea>
+        <textarea class="text-preview-box" id="extracted-text-area" readonly>${escapeHtml(text)}</textarea>
       `;
 
       const footerHtml = `
@@ -457,7 +457,7 @@ export class ModalManager {
       if (fileInput.files && fileInput.files.length > 0) {
         selectedFiles = Array.from(fileInput.files);
         fileListEl.innerHTML = selectedFiles
-          .map((f, i) => `<div>${i + 1}. ${f.name} (${formatBytes(f.size)})</div>`)
+          .map((f, i) => `<div>${i + 1}. ${escapeHtml(f.name)} (${formatBytes(f.size)})</div>`)
           .join('');
         convertBtn.disabled = false;
       } else {
