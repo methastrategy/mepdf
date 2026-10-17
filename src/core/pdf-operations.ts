@@ -345,7 +345,7 @@ export async function pdfToImages(
       items.push({
         name: `page_${numStr}.${ext}`,
         blob,
-        dataUrl: canvas.toDataURL(mimeType, quality),
+        dataUrl: '', // Memory optimization: skip unused multi-megabyte base64 allocation
         pageNumber: i,
         width: canvas.width,
         height: canvas.height,

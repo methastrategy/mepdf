@@ -12,6 +12,7 @@ import {
   DownloadCloud,
   ShieldCheck,
   Plus,
+  Scissors,
 } from 'lucide';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -39,6 +40,10 @@ class MePdfApp {
   private visualGrid: VisualGrid | null = null;
   private fileInput: HTMLInputElement;
   private pendingAction: string | null = null;
+  private lastDeletedState: {
+    pages: { page: PDFPageItem; index: number }[];
+    documents: DocumentMetadata[];
+  } | null = null;
 
   constructor() {
     this.appEl = document.querySelector<HTMLElement>('#app')!;
@@ -67,7 +72,11 @@ class MePdfApp {
         <nav class="nav-tabs">
           <button class="nav-tab-btn active" data-tab="studio">
             <i data-lucide="layers" style="width: 15px; height: 15px;"></i>
-            <span>Visual Studio</span>
+            <span>Visual Studio (Merge & Organize)</span>
+          </button>
+          <button class="nav-tab-btn" data-tab="split">
+            <i data-lucide="scissors" style="width: 15px; height: 15px;"></i>
+            <span>Split PDF</span>
           </button>
           <button class="nav-tab-btn" data-tab="compress">
             <i data-lucide="minimize-2" style="width: 15px; height: 15px;"></i>
@@ -142,6 +151,7 @@ class MePdfApp {
         DownloadCloud,
         ShieldCheck,
         Plus,
+        Scissors,
       },
       nameAttr: 'data-lucide',
     });
@@ -216,6 +226,13 @@ class MePdfApp {
         if (activeTag !== 'input' && activeTag !== 'textarea') {
           e.preventDefault();
           this.selectAll();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const activeTag = document.activeElement?.tagName.toLowerCase();
+        if (activeTag !== 'input' && activeTag !== 'textarea') {
+          e.preventDefault();
+          this.undoDelete();
         }
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -535,20 +552,76 @@ class MePdfApp {
   }
 
   private deleteSinglePage(pageId: string): void {
-    this.pages = this.pages.filter((p) => p.id !== pageId);
+    const idx = this.pages.findIndex((p) => p.id === pageId);
+    if (idx === -1) return;
+
+    const deletedPage = this.pages[idx]!;
+    const docMeta = this.documents.get(deletedPage.docId);
+
+    this.lastDeletedState = {
+      pages: [{ page: { ...deletedPage }, index: idx }],
+      documents: docMeta ? [{ ...docMeta }] : [],
+    };
+
+    this.pages.splice(idx, 1);
     this.pruneUnusedDocuments();
-    toast.show('Page removed', 'info');
     this.updateUI();
+
+    toast.showAction('Page removed', 'Undo', () => this.undoDelete());
   }
 
   private deleteSelected(): void {
-    const selectedCount = this.pages.filter((p) => p.selected).length;
+    const selectedPagesWithIndices = this.pages
+      .map((p, idx) => ({ page: { ...p }, index: idx }))
+      .filter((item) => item.page.selected);
+
+    const selectedCount = selectedPagesWithIndices.length;
     if (selectedCount === 0) return;
+
+    const docIds = new Set(selectedPagesWithIndices.map((item) => item.page.docId));
+    const docsToKeep = Array.from(docIds)
+      .map((id) => this.documents.get(id))
+      .filter((d): d is DocumentMetadata => Boolean(d));
+
+    this.lastDeletedState = {
+      pages: selectedPagesWithIndices,
+      documents: docsToKeep,
+    };
 
     this.pages = this.pages.filter((p) => !p.selected);
     this.pruneUnusedDocuments();
-    toast.show(`Removed ${selectedCount} ${selectedCount === 1 ? 'page' : 'pages'}`, 'info');
     this.updateUI();
+
+    toast.showAction(
+      `Removed ${selectedCount} ${selectedCount === 1 ? 'page' : 'pages'}`,
+      'Undo',
+      () => this.undoDelete()
+    );
+  }
+
+  private undoDelete(): void {
+    if (!this.lastDeletedState || this.lastDeletedState.pages.length === 0) return;
+
+    const { pages, documents } = this.lastDeletedState;
+
+    // Restore document metadata if pruned
+    for (const doc of documents) {
+      if (!this.documents.has(doc.id)) {
+        this.documents.set(doc.id, doc);
+      }
+    }
+
+    // Restore pages at their indices, sorted ascending
+    const sorted = [...pages].sort((a, b) => a.index - b.index);
+    for (const { page, index } of sorted) {
+      const insertAt = Math.min(Math.max(0, index), this.pages.length);
+      this.pages.splice(insertAt, 0, page);
+    }
+
+    const count = sorted.length;
+    this.lastDeletedState = null;
+    this.updateUI();
+    toast.show(`Restored ${count} ${count === 1 ? 'page' : 'pages'}!`, 'success');
   }
 
   private reorderPages(fromIndex: number, toIndex: number): void {
@@ -568,6 +641,7 @@ class MePdfApp {
       () => {
         this.pages = [];
         this.documents.clear();
+        this.lastDeletedState = null;
         clearThumbnailCache();
         this.updateUI();
         toast.show('Workspace cleared', 'info');
@@ -615,6 +689,7 @@ class MePdfApp {
   private openSplitModal(): void {
     if (this.pages.length < 2) {
       toast.show('At least 2 pages are required to split.', 'info');
+      this.resetNavTabToStudio();
       return;
     }
     let baseFilename = 'mepdf';
@@ -626,6 +701,7 @@ class MePdfApp {
         baseFilename = doc.filename.replace(/\.pdf$/i, '');
       }
     }
+    modal.setOnClose(() => this.resetNavTabToStudio());
     modal.showSplitModal(this.pages, this.documents, baseFilename);
   }
 
@@ -678,6 +754,18 @@ class MePdfApp {
 
     if (tab === 'studio') {
       this.setActiveNavTab('studio');
+      return;
+    }
+
+    if (tab === 'split') {
+      if (this.pages.length === 0) {
+        this.pendingAction = 'split';
+        toast.show('Please select a PDF document first.', 'info');
+        this.fileInput.click();
+        return;
+      }
+      this.setActiveNavTab('split');
+      this.openSplitModal();
       return;
     }
 

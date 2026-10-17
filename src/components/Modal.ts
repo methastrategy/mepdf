@@ -47,6 +47,7 @@ export class ModalManager {
   private footerActions!: HTMLElement;
   private closeBtn!: HTMLButtonElement;
   private onCloseCallback: (() => void) | null = null;
+  private previousActiveElement: HTMLElement | null = null;
 
   constructor() {
     this.ensureElements();
@@ -61,10 +62,10 @@ export class ModalManager {
         el.id = 'app-modal-overlay';
         el.className = 'modal-overlay';
         el.innerHTML = `
-          <div class="modal-card">
+          <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-header-title">
             <div class="modal-header">
               <h3 class="modal-title" id="modal-header-title">Modal</h3>
-              <button class="btn btn-ghost btn-icon-only" id="modal-close-btn" title="Close">
+              <button class="btn btn-ghost btn-icon-only" id="modal-close-btn" title="Close" aria-label="Close modal">
                 <i data-lucide="x" style="width: 18px; height: 18px;"></i>
               </button>
             </div>
@@ -87,8 +88,45 @@ export class ModalManager {
       });
 
       window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && this.overlay?.classList.contains('active')) {
+        if (!this.overlay?.classList.contains('active')) return;
+
+        if (e.key === 'Escape') {
           this.close();
+          return;
+        }
+
+        if (e.key === 'Tab') {
+          const focusable = Array.from(
+            this.overlay.querySelectorAll<HTMLElement>(
+              'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+          ).filter((node) => {
+            if (typeof window !== 'undefined' && 'getComputedStyle' in window) {
+              const style = window.getComputedStyle(node);
+              if (style.display === 'none' || style.visibility === 'hidden') return false;
+            }
+            return true;
+          });
+
+          if (focusable.length === 0) {
+            e.preventDefault();
+            return;
+          }
+
+          const firstEl = focusable[0]!;
+          const lastEl = focusable[focusable.length - 1]!;
+
+          if (e.shiftKey) {
+            if (document.activeElement === firstEl || !this.overlay.contains(document.activeElement)) {
+              e.preventDefault();
+              lastEl.focus();
+            }
+          } else {
+            if (document.activeElement === lastEl || !this.overlay.contains(document.activeElement)) {
+              e.preventDefault();
+              firstEl.focus();
+            }
+          }
         }
       });
 
@@ -103,16 +141,37 @@ export class ModalManager {
 
   open(title: string, bodyHtml: string, footerHtml: string): void {
     if (!this.ensureElements()) return;
+    this.previousActiveElement = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
     this.headerTitle.innerHTML = title;
     this.bodyContent.innerHTML = bodyHtml;
     this.footerActions.innerHTML = footerHtml;
     this.overlay.classList.add('active');
     this.refreshIcons();
+
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => {
+        const firstInput = this.bodyContent.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea');
+        if (firstInput) {
+          firstInput.focus();
+        } else {
+          const firstBtn = this.footerActions.querySelector<HTMLElement>('button:not([disabled])');
+          firstBtn?.focus();
+        }
+      });
+    }
   }
 
   close(): void {
     if (this.overlay) {
       this.overlay.classList.remove('active');
+    }
+    if (this.previousActiveElement && typeof this.previousActiveElement.focus === 'function') {
+      try {
+        this.previousActiveElement.focus();
+      } catch {
+        // Safe fallback
+      }
+      this.previousActiveElement = null;
     }
     if (this.onCloseCallback) {
       const cb = this.onCloseCallback;
@@ -618,6 +677,15 @@ export class ModalManager {
     onSubmit: (password: string) => Promise<boolean | void> | boolean | void,
     onCancel?: () => void
   ): void {
+    let settled = false;
+    const cancelAction = () => {
+      if (settled) return;
+      settled = true;
+      onCancel?.();
+    };
+
+    this.setOnClose(cancelAction);
+
     const title = `<i data-lucide="lock" style="width: 18px; height: 18px; color: var(--primary);"></i> Password Required`;
     const bodyHtml = `
       <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5;">
@@ -643,8 +711,8 @@ export class ModalManager {
     pwdInput.focus();
 
     const handleCancel = () => {
+      cancelAction();
       this.close();
-      onCancel?.();
     };
 
     const handleSubmit = async () => {
@@ -666,6 +734,8 @@ export class ModalManager {
         if (res === false) {
           throw new Error('Incorrect password');
         }
+        settled = true;
+        this.setOnClose(null);
         this.close();
       } catch (err: unknown) {
         if (submitBtn) submitBtn.disabled = false;

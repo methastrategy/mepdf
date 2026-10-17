@@ -88,10 +88,10 @@ export class VisualGrid {
 
         <div class="page-card-footer">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <button class="page-action-btn page-move-left-btn" data-index="${index}" ${isFirst ? 'disabled style="opacity: 0.3; pointer-events: none;"' : ''} title="Move left">
+            <button class="page-action-btn page-move-left-btn" data-index="${index}" ${isFirst ? 'disabled' : ''} title="Move left">
               <i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i>
             </button>
-            <button class="page-action-btn page-move-right-btn" data-index="${index}" ${isLast ? 'disabled style="opacity: 0.3; pointer-events: none;"' : ''} title="Move right">
+            <button class="page-action-btn page-move-right-btn" data-index="${index}" ${isLast ? 'disabled' : ''} title="Move right">
               <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
             </button>
           </div>
@@ -160,7 +160,14 @@ export class VisualGrid {
       // Card click for selection toggle (when not clicking buttons or handles)
       card.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
-        if (target.closest('button') || target.closest('input') || target.closest('.page-drag-handle')) return;
+        if (
+          target.closest('button') ||
+          target.closest('input') ||
+          target.closest('.page-drag-handle') ||
+          target.closest('.page-action-btn')
+        ) {
+          return;
+        }
         this.events.onToggleSelect(pageId);
       });
 
@@ -194,6 +201,7 @@ export class VisualGrid {
 
       card.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         card.classList.remove('drag-over');
 
         // Check if external files were dropped on the card
