@@ -327,7 +327,8 @@ class MePdfApp {
         const bytes = await readFileAsUint8Array(file);
 
         progressOverlay.show(`Loading ${file.name}...`);
-        let pdfDoc;
+        let pdfDoc: import('pdfjs-dist').PDFDocumentProxy;
+        let enteredPassword: string | undefined;
         try {
           pdfDoc = await loadPdfDocument(bytes);
         } catch (err: unknown) {
@@ -336,17 +337,30 @@ class MePdfApp {
             (err instanceof Error && /password/i.test(err.message));
           if (isPassword) {
             progressOverlay.hide();
-            const password = await new Promise<string>((resolve, reject) => {
-              modal.showPasswordPromptModal(
-                file.name,
-                (pwd) => resolve(pwd),
-                () => reject(new Error('Password prompt cancelled'))
-              );
-            });
-            progressOverlay.show(`Unlocking ${file.name}...`);
-            pdfDoc = await loadPdfDocument(bytes, password);
+            try {
+              pdfDoc = await new Promise<import('pdfjs-dist').PDFDocumentProxy>((resolve, reject) => {
+                modal.showPasswordPromptModal(
+                  file.name,
+                  async (pwd) => {
+                    try {
+                      const doc = await loadPdfDocument(bytes, pwd);
+                      enteredPassword = pwd;
+                      resolve(doc);
+                    } catch {
+                      throw new Error('Incorrect password');
+                    }
+                  },
+                  () => reject(new Error('Password prompt cancelled'))
+                );
+              });
+            } catch {
+              toast.show(`Skipped ${file.name} (password required)`, 'info');
+              continue;
+            }
           } else {
-            throw err;
+            const msg = err instanceof Error ? err.message : String(err);
+            toast.show(`Failed to load ${file.name}: ${msg}`, 'error');
+            continue;
           }
         }
 
@@ -359,6 +373,7 @@ class MePdfApp {
             size: file.size,
             pageCount,
             fileBytes: bytes,
+            password: enteredPassword,
           });
 
           // Render thumbnails for each page
@@ -579,8 +594,10 @@ class MePdfApp {
       progressOverlay.hide();
 
       let exportFilename = 'mepdf_merged.pdf';
-      if (this.documents.size === 1) {
-        const doc = this.documents.values().next().value;
+      const distinctDocIds = new Set(this.pages.map((p) => p.docId));
+      if (distinctDocIds.size === 1) {
+        const docId = distinctDocIds.values().next().value;
+        const doc = docId ? this.documents.get(docId) : null;
         if (doc?.filename) {
           exportFilename = `${doc.filename.replace(/\.pdf$/i, '')}_edited.pdf`;
         }
@@ -600,13 +617,22 @@ class MePdfApp {
       toast.show('At least 2 pages are required to split.', 'info');
       return;
     }
-    modal.showSplitModal(this.pages, this.documents, 'mepdf');
+    let baseFilename = 'mepdf';
+    const distinctDocIds = new Set(this.pages.map((p) => p.docId));
+    if (distinctDocIds.size === 1) {
+      const docId = distinctDocIds.values().next().value;
+      const doc = docId ? this.documents.get(docId) : null;
+      if (doc?.filename) {
+        baseFilename = doc.filename.replace(/\.pdf$/i, '');
+      }
+    }
+    modal.showSplitModal(this.pages, this.documents, baseFilename);
   }
 
   // ==========================================
   // ACTIVE DOCUMENT RESOLVER
   // ==========================================
-  private async getActiveDocumentBytes(): Promise<{ docBytes: Uint8Array; docName: string }> {
+  private async getActiveDocumentBytes(): Promise<{ docBytes: Uint8Array; docName: string; password?: string }> {
     if (this.pages.length === 0) {
       throw new Error('No pages in workspace');
     }
@@ -619,7 +645,7 @@ class MePdfApp {
       this.pages.every((p, idx) => p.pageIndex === idx && p.rotation === 0);
 
     if (isUnmodified) {
-      return { docBytes: firstDoc.fileBytes, docName: firstDoc.filename };
+      return { docBytes: firstDoc.fileBytes, docName: firstDoc.filename, password: firstDoc.password };
     }
 
     // Generate exact merged document representing current workspace state
@@ -630,7 +656,7 @@ class MePdfApp {
     progressOverlay.hide();
 
     const baseName = isSingleDoc ? firstDoc.filename : 'mepdf_workspace.pdf';
-    return { docBytes: mergedBytes, docName: baseName };
+    return { docBytes: mergedBytes, docName: baseName, password: isSingleDoc ? firstDoc.password : undefined };
   }
 
   // ==========================================
@@ -680,16 +706,16 @@ class MePdfApp {
     }
 
     try {
-      const { docBytes, docName } = await this.getActiveDocumentBytes();
+      const { docBytes, docName, password } = await this.getActiveDocumentBytes();
       this.setActiveNavTab(tab);
       modal.setOnClose(() => this.resetNavTabToStudio());
 
       if (tab === 'compress') {
-        modal.showCompressModal(docBytes, docName);
+        modal.showCompressModal(docBytes, docName, password);
       } else if (tab === 'pdf2img') {
-        modal.showPdfToImagesModal(docBytes, docName);
+        modal.showPdfToImagesModal(docBytes, docName, password);
       } else if (tab === 'extract-text') {
-        await modal.showExtractTextModal(docBytes, docName);
+        await modal.showExtractTextModal(docBytes, docName, password);
       }
     } catch (err: unknown) {
       this.resetNavTabToStudio();

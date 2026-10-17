@@ -318,9 +318,10 @@ export async function pdfToImages(
   pdfBytes: Uint8Array,
   dpi = 150,
   format: 'png' | 'jpeg' = 'png',
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  password?: string
 ): Promise<ExtractedImageItem[]> {
-  const pdfDoc = await loadPdfDocument(pdfBytes);
+  const pdfDoc = await loadPdfDocument(pdfBytes, password);
   try {
     const total = pdfDoc.numPages;
     const items: ExtractedImageItem[] = [];
@@ -403,9 +404,10 @@ export async function createImagesZip(
  */
 export async function extractText(
   pdfBytes: Uint8Array,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  password?: string
 ): Promise<string> {
-  const pdfDoc = await loadPdfDocument(pdfBytes);
+  const pdfDoc = await loadPdfDocument(pdfBytes, password);
   try {
     return await extractTextFromDoc(pdfDoc, onProgress);
   } finally {

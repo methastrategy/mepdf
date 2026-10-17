@@ -1,19 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { PDFDocument, EncryptedPDFError } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { splitPagesByRanges, mergePages } from '../src/core/pdf-operations';
 import { getDefaultSplitRange } from '../src/components/Modal';
 import {
   clearThumbnailCache,
   removeDocThumbnails,
   getThumbnailCacheSize,
+  setCachedThumbnail,
   destroyPdfDocument,
 } from '../src/core/pdf-renderer';
-import type { PDFPageItem, DocumentMetadata } from '../src/core/types';
+import type { PDFPageItem, DocumentMetadata, CompressionResult } from '../src/core/types';
 
 describe('Split Default Range calculation (getDefaultSplitRange)', () => {
-  it('handles 1-page document', () => {
+  it('handles 1-page and 0-page document defensively', () => {
     expect(getDefaultSplitRange(1)).toBe('1');
     expect(getDefaultSplitRange(0)).toBe('1');
+    expect(getDefaultSplitRange(-5)).toBe('1');
+    expect(getDefaultSplitRange(NaN)).toBe('1');
   });
 
   it('handles 2-page document with clean separation without duplicates', () => {
@@ -27,6 +30,8 @@ describe('Split Default Range calculation (getDefaultSplitRange)', () => {
 
   it('handles 4-page and multi-page documents', () => {
     expect(getDefaultSplitRange(4)).toBe('1-2, 3-4');
+    expect(getDefaultSplitRange(5)).toBe('1-2, 3-5');
+    expect(getDefaultSplitRange(6)).toBe('1-3, 4-6');
     expect(getDefaultSplitRange(10)).toBe('1-5, 6-10');
   });
 });
@@ -92,7 +97,7 @@ describe('Split 2-page document with "1, 2"', () => {
   });
 });
 
-describe('Encrypted Document Handling in mergePages', () => {
+describe('Encrypted Document Handling in mergePages and splitPagesByRanges', () => {
   // A minimal valid PDF structure with an /Encrypt trailer entry
   const encryptedPdfText = `%PDF-1.4
 1 0 obj
@@ -163,21 +168,61 @@ startxref
     const resultDoc = await PDFDocument.load(mergedBytes);
     expect(resultDoc.getPageCount()).toBe(1);
   });
+
+  it('splits pages from an encrypted document without throwing EncryptedPDFError', async () => {
+    const docMap = new Map<string, DocumentMetadata>();
+    docMap.set('enc-doc', {
+      id: 'enc-doc',
+      filename: 'protected.pdf',
+      size: encryptedPdfBytes.byteLength,
+      pageCount: 1,
+      fileBytes: encryptedPdfBytes,
+    });
+
+    const pages: PDFPageItem[] = [
+      {
+        id: 'enc-p1',
+        docId: 'enc-doc',
+        docName: 'protected.pdf',
+        pageIndex: 0,
+        displayPageNumber: 1,
+        rotation: 0,
+        thumbnailDataUrl: '',
+        width: 400,
+        height: 400,
+        selected: false,
+      },
+    ];
+
+    const splitResults = await splitPagesByRanges(pages, docMap, '1', 'enc_split');
+    expect(splitResults).toHaveLength(1);
+    expect(splitResults[0]?.filename).toBe('enc_split_page_1.pdf');
+    const doc = await PDFDocument.load(splitResults[0]!.bytes);
+    expect(doc.getPageCount()).toBe(1);
+  });
 });
 
 describe('Thumbnail cache pruning and memory release', () => {
-  it('clears thumbnail cache and prunes specific doc thumbnails', () => {
+  it('clears thumbnail cache and prunes specific doc thumbnails without prefix collision', () => {
     clearThumbnailCache();
     expect(getThumbnailCacheSize()).toBe(0);
 
-    // Mock direct entries
-    const testMap = new Map<string, string>();
-    testMap.set('docA-p1', 'data:image/jpeg;base64,aaa');
-    testMap.set('docA-p2', 'data:image/jpeg;base64,bbb');
-    testMap.set('docB-p1', 'data:image/jpeg;base64,ccc');
+    // Populate actual cache via setCachedThumbnail
+    setCachedThumbnail('docA-p1-r0-w320', 'data:image/jpeg;base64,aaa');
+    setCachedThumbnail('docA-p2-r0-w320', 'data:image/jpeg;base64,bbb');
+    setCachedThumbnail('docA_extra-p1-r0-w320', 'data:image/jpeg;base64,xxx');
+    setCachedThumbnail('docB-p1-r0-w320', 'data:image/jpeg;base64,ccc');
 
-    // Test removeDocThumbnails behavior
+    expect(getThumbnailCacheSize()).toBe(4);
+
+    // Pruning docA must delete docA-p1 and docA-p2, but NOT docA_extra or docB!
     removeDocThumbnails('docA');
+    expect(getThumbnailCacheSize()).toBe(2);
+
+    // Pruning docB removes docB
+    removeDocThumbnails('docB');
+    expect(getThumbnailCacheSize()).toBe(1);
+
     clearThumbnailCache();
     expect(getThumbnailCacheSize()).toBe(0);
   });
@@ -187,5 +232,59 @@ describe('Thumbnail cache pruning and memory release', () => {
       destroy: async () => {},
     };
     await expect(destroyPdfDocument(fakeProxy as any)).resolves.not.toThrow();
+  });
+});
+
+describe('Filename preservation and compression paradox invariants', () => {
+  it('correctly resolves single-document export name and multi-document merge name', () => {
+    function resolveExportFilename(pages: { docId: string }[], docMap: Map<string, { filename: string }>): string {
+      const distinctDocIds = new Set(pages.map((p) => p.docId));
+      if (distinctDocIds.size === 1) {
+        const docId = distinctDocIds.values().next().value;
+        const doc = docId ? docMap.get(docId) : null;
+        if (doc?.filename) {
+          return `${doc.filename.replace(/\.pdf$/i, '')}_edited.pdf`;
+        }
+      }
+      return 'mepdf_merged.pdf';
+    }
+
+    const docMap = new Map<string, { filename: string }>();
+    docMap.set('d1', { filename: 'Invoice_2026.pdf' });
+    docMap.set('d2', { filename: 'Receipt.PDF' });
+
+    // Single doc
+    expect(resolveExportFilename([{ docId: 'd1' }, { docId: 'd1' }], docMap)).toBe('Invoice_2026_edited.pdf');
+    expect(resolveExportFilename([{ docId: 'd2' }], docMap)).toBe('Receipt_edited.pdf');
+
+    // Multiple docs
+    expect(resolveExportFilename([{ docId: 'd1' }, { docId: 'd2' }], docMap)).toBe('mepdf_merged.pdf');
+  });
+
+  it('validates ineffective compression ratio detection', () => {
+    function computeCompressionResult(originalSize: number, compressedSize: number): CompressionResult {
+      const ratio = originalSize > 0 ? compressedSize / originalSize : 1.0;
+      const ineffective = compressedSize >= originalSize;
+      return {
+        pdfBytes: new Uint8Array(compressedSize),
+        originalSize,
+        compressedSize,
+        ratio,
+        ineffective,
+      };
+    }
+
+    // Paradox case: compressed is larger or equal to original
+    const paradox = computeCompressionResult(1000, 1050);
+    expect(paradox.ineffective).toBe(true);
+    expect(paradox.ratio).toBe(1.05);
+
+    const identical = computeCompressionResult(1000, 1000);
+    expect(identical.ineffective).toBe(true);
+
+    // Effective case: compressed is smaller
+    const effective = computeCompressionResult(1000, 600);
+    expect(effective.ineffective).toBe(false);
+    expect(effective.ratio).toBe(0.6);
   });
 });

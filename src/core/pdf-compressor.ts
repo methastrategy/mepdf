@@ -27,10 +27,11 @@ export const COMPRESSION_PRESETS: Record<string, CompressionOptions> = {
 export async function compressPdf(
   originalBytes: Uint8Array,
   options: CompressionOptions,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  password?: string
 ): Promise<CompressionResult> {
   const originalSize = originalBytes.byteLength;
-  const pdfDoc = await loadPdfDocument(originalBytes);
+  const pdfDoc = await loadPdfDocument(originalBytes, password);
   try {
     const total = pdfDoc.numPages;
     const targetDoc = await PDFDocument.create();

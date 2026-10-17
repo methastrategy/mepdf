@@ -287,7 +287,7 @@ button, input, select, textarea {
   margin-bottom: 1.25rem;
   box-shadow: var(--shadow-sm);
   position: sticky;
-  top: 76px;
+  top: calc(76px + env(safe-area-inset-top, 0px));
   z-index: 30;
 }
 
@@ -495,17 +495,33 @@ button, input, select, textarea {
   min-height: 28px;
 }
 
-/* 44px accessible touch target */
-.page-action-btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 44px;
-  min-height: 44px;
-  width: 100%;
-  height: 100%;
+/* 44px accessible touch target on coarse pointer devices */
+@media (pointer: coarse) {
+  .page-action-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    min-height: 44px;
+    width: 100%;
+  }
+}
+
+.page-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.35rem;
+  color: var(--text-muted);
+  cursor: grab;
+  user-select: none;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast) var(--ease-spring);
+}
+
+.page-drag-handle:hover {
+  color: var(--text-primary);
 }
 
 .page-action-btn:hover {
@@ -846,7 +862,7 @@ button, input, select, textarea {
     padding: 0.75rem;
   }
   .workspace-toolbar {
-    top: 116px; /* Accounts for wrapped 2-row navbar */
+    top: calc(116px + env(safe-area-inset-top, 0px)); /* Accounts for wrapped 2-row navbar + notch */
   }
   .pages-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -859,6 +875,10 @@ button, input, select, textarea {
     min-width: 36px;
     min-height: 36px;
     padding: 0.45rem 0.55rem;
+  }
+  .page-drag-handle {
+    min-width: 24px;
+    min-height: 36px;
   }
   .preset-selector {
     grid-template-columns: 1fr;

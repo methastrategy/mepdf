@@ -208,11 +208,19 @@ export function clearThumbnailCache(): void {
  * Prunes thumbnail cache for a specific document ID
  */
 export function removeDocThumbnails(docId: string): void {
+  const prefix = `${docId}-`;
   for (const key of thumbnailCache.keys()) {
-    if (key.startsWith(docId)) {
+    if (key.startsWith(prefix) || key === docId) {
       thumbnailCache.delete(key);
     }
   }
+}
+
+/**
+ * Sets a thumbnail in cache (used by renderer and tests)
+ */
+export function setCachedThumbnail(key: string, dataUrl: string): void {
+  thumbnailCache.set(key, dataUrl);
 }
 
 /**

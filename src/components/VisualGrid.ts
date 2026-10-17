@@ -87,7 +87,7 @@ export class VisualGrid {
         </div>
 
         <div class="page-card-footer">
-          <div style="display: flex; align-items: center; gap: 2px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
             <button class="page-action-btn page-move-left-btn" data-index="${index}" ${isFirst ? 'disabled style="opacity: 0.3; pointer-events: none;"' : ''} title="Move left">
               <i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i>
             </button>
@@ -96,12 +96,12 @@ export class VisualGrid {
             </button>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 2px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
             <button class="page-action-btn page-rotate-btn" data-page-id="${page.id}" title="Rotate 90° clockwise">
               <i data-lucide="rotate-cw" style="width: 14px; height: 14px;"></i>
             </button>
             
-            <span class="page-action-btn" style="cursor: grab;" title="Drag to reorder">
+            <span class="page-drag-handle" style="cursor: grab;" title="Drag to reorder">
               <i data-lucide="grip-vertical" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
             </span>
 
@@ -157,10 +157,10 @@ export class VisualGrid {
         this.events.onDeletePage(pageId);
       });
 
-      // Card click for selection toggle (when not clicking buttons)
+      // Card click for selection toggle (when not clicking buttons or handles)
       card.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
-        if (target.closest('button') || target.closest('input')) return;
+        if (target.closest('button') || target.closest('input') || target.closest('.page-drag-handle')) return;
         this.events.onToggleSelect(pageId);
       });
 

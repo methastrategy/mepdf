@@ -32,7 +32,7 @@ import type { PDFPageItem, DocumentMetadata, CompressionPreset } from '../core/t
  * Returns an intuitive default split range expression based on page count
  */
 export function getDefaultSplitRange(totalPages: number): string {
-  if (totalPages <= 1) return '1';
+  if (!totalPages || totalPages <= 1 || isNaN(totalPages)) return '1';
   if (totalPages === 2) return '1, 2';
   const mid = Math.floor(totalPages / 2);
   const firstPart = mid === 1 ? '1' : `1-${mid}`;
@@ -145,7 +145,7 @@ export class ModalManager {
   // ==========================================
   // COMPRESS MODAL
   // ==========================================
-  showCompressModal(documentBytes: Uint8Array, filename = 'document.pdf'): void {
+  showCompressModal(documentBytes: Uint8Array, filename = 'document.pdf', password?: string): void {
     let selectedPreset: CompressionPreset = 'ebook';
     let currentQuality = 0.78;
     const originalSize = documentBytes.byteLength;
@@ -258,7 +258,7 @@ export class ModalManager {
 
         const result = await compressPdf(documentBytes, options, (info) => {
           progressOverlay.update(info);
-        });
+        }, password);
 
         progressOverlay.hide();
 
@@ -420,10 +420,10 @@ export class ModalManager {
   // ==========================================
   // EXTRACT TEXT MODAL
   // ==========================================
-  async showExtractTextModal(fileBytes: Uint8Array, filename = 'document.pdf'): Promise<void> {
+  async showExtractTextModal(fileBytes: Uint8Array, filename = 'document.pdf', password?: string): Promise<void> {
     try {
       progressOverlay.show('Extracting text from PDF...');
-      const text = await extractText(fileBytes, (info) => progressOverlay.update(info));
+      const text = await extractText(fileBytes, (info) => progressOverlay.update(info), password);
       progressOverlay.hide();
 
       const title = `<i data-lucide="file-text" style="width: 18px; height: 18px; color: var(--primary);"></i> Extracted Plain Text`;
@@ -615,7 +615,7 @@ export class ModalManager {
   // ==========================================
   showPasswordPromptModal(
     filename: string,
-    onSubmit: (password: string) => void,
+    onSubmit: (password: string) => Promise<boolean | void> | boolean | void,
     onCancel?: () => void
   ): void {
     const title = `<i data-lucide="lock" style="width: 18px; height: 18px; color: var(--primary);"></i> Password Required`;
@@ -647,18 +647,36 @@ export class ModalManager {
       onCancel?.();
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
       const val = pwdInput.value;
+      const errEl = this.bodyContent.querySelector<HTMLElement>('#pdf-password-error');
       if (!val) {
-        const errEl = this.bodyContent.querySelector<HTMLElement>('#pdf-password-error');
         if (errEl) {
           errEl.textContent = 'Please enter a password';
           errEl.style.display = 'block';
         }
         return;
       }
-      this.close();
-      onSubmit(val);
+
+      const submitBtn = this.footerActions.querySelector<HTMLButtonElement>('#modal-password-submit-btn');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const res = await onSubmit(val);
+        if (res === false) {
+          throw new Error('Incorrect password');
+        }
+        this.close();
+      } catch (err: unknown) {
+        if (submitBtn) submitBtn.disabled = false;
+        if (errEl) {
+          const msg = err instanceof Error ? err.message : 'Incorrect password';
+          errEl.textContent = msg.includes('cancelled') ? '' : 'Incorrect password. Please try again.';
+          errEl.style.display = 'block';
+        }
+        pwdInput.select();
+        pwdInput.focus();
+      }
     };
 
     this.footerActions.querySelector('#modal-password-cancel-btn')?.addEventListener('click', handleCancel);
@@ -673,7 +691,7 @@ export class ModalManager {
   // ==========================================
   // PDF TO IMAGES MODAL
   // ==========================================
-  showPdfToImagesModal(documentBytes: Uint8Array, filename = 'document.pdf'): void {
+  showPdfToImagesModal(documentBytes: Uint8Array, filename = 'document.pdf', password?: string): void {
     const title = `<i data-lucide="image" style="width: 18px; height: 18px; color: var(--primary);"></i> Export PDF to Images`;
     const bodyHtml = `
       <div class="form-group">
@@ -718,7 +736,7 @@ export class ModalManager {
         progressOverlay.show('Rendering pages to images...');
         const images = await pdfToImages(documentBytes, dpi, format, (info) => {
           progressOverlay.update(info);
-        });
+        }, password);
 
         progressOverlay.show('Packaging ZIP file...');
         const zipBlob = await createImagesZip(images, (info) => {
