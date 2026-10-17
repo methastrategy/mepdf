@@ -10,13 +10,13 @@ export const COMPRESSION_PRESETS: Record<string, CompressionOptions> = {
   },
   ebook: {
     preset: 'ebook',
-    dpi: 144,
+    dpi: 150,
     quality: 0.78,
   },
   printer: {
     preset: 'printer',
-    dpi: 200,
-    quality: 0.88,
+    dpi: 300,
+    quality: 0.90,
   },
 };
 
@@ -37,9 +37,8 @@ export async function compressPdf(
   const scale = options.dpi / 72.0;
 
   for (let i = 1; i <= total; i++) {
-    const page = await pdfDoc.getPage(i);
-    const rotation = page.rotate;
-    const canvas = await renderPageToCanvas(pdfDoc, i, scale, rotation);
+    // renderPageToCanvas computes intrinsic rotation automatically
+    const canvas = await renderPageToCanvas(pdfDoc, i, scale);
 
     const jpegBlob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
@@ -63,6 +62,10 @@ export async function compressPdf(
       width: ptWidth,
       height: ptHeight,
     });
+
+    // Release canvas memory buffer immediately to prevent tab VRAM exhaustion
+    canvas.width = 0;
+    canvas.height = 0;
 
     if (onProgress) {
       onProgress({

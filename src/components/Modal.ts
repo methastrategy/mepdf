@@ -86,40 +86,60 @@ export class ModalManager {
   // ==========================================
   showCompressModal(documentBytes: Uint8Array, filename = 'document.pdf'): void {
     let selectedPreset: CompressionPreset = 'ebook';
+    let currentQuality = 0.78;
     const originalSize = documentBytes.byteLength;
 
     const title = `<i data-lucide="minimize-2" style="width: 18px; height: 18px; color: var(--primary);"></i> Smart PDF Compression`;
     const bodyHtml = `
       <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5;">
-        Downsamples high-resolution scanned graphics and optimizes page structures directly in your browser.
+        Downsamples high-resolution scanned graphics and optimizes page structures directly in your browser with zero server upload.
       </div>
 
       <div class="form-group">
         <label class="form-label">Compression Preset</label>
         <div class="preset-selector">
-          <div class="preset-card" data-preset="screen">
+          <div class="preset-card" data-preset="screen" data-dpi="96" data-quality="0.65">
             <div class="preset-title">Screen</div>
-            <div class="preset-desc">96 DPI • Max savings for email/web</div>
+            <div class="preset-desc">96 DPI • Maximum savings</div>
           </div>
-          <div class="preset-card active" data-preset="ebook">
+          <div class="preset-card active" data-preset="ebook" data-dpi="150" data-quality="0.78">
             <div class="preset-title">Ebook</div>
-            <div class="preset-desc">144 DPI • Balanced sharpness & size</div>
+            <div class="preset-desc">150 DPI • Balanced sharpness</div>
           </div>
-          <div class="preset-card" data-preset="printer">
+          <div class="preset-card" data-preset="printer" data-dpi="300" data-quality="0.90">
             <div class="preset-title">Print</div>
-            <div class="preset-desc">200 DPI • High quality print</div>
+            <div class="preset-desc">300 DPI • High quality print</div>
           </div>
         </div>
       </div>
 
-      <div style="background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">Current File Size</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">${formatBytes(originalSize)}</div>
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label class="form-label" for="compress-quality-slider">Quality Slider</label>
+          <span id="compress-quality-value" style="font-size: 0.8125rem; font-weight: 700; color: var(--primary);">78%</span>
         </div>
-        <div id="compress-result-box" style="text-align: right; display: none;">
-          <div style="font-size: 0.75rem; color: var(--success);">Optimized Size</div>
-          <div id="compress-result-size" style="font-size: 1.1rem; font-weight: 700; color: var(--success);"></div>
+        <input type="range" class="form-range" id="compress-quality-slider" min="10" max="95" value="78" step="1" />
+        <div style="display: flex; justify-content: space-between; font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.2rem;">
+          <span>Maximum Compression (10%)</span>
+          <span>Balanced (75%)</span>
+          <span>Maximum Quality (95%)</span>
+        </div>
+      </div>
+
+      <div class="size-comparison-card" style="background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Current File Size</div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">${formatBytes(originalSize)}</div>
+          </div>
+          <div id="compress-result-box" style="text-align: right; display: none;">
+            <div style="font-size: 0.75rem; color: var(--success);">Optimized Size</div>
+            <div id="compress-result-size" style="font-size: 1.15rem; font-weight: 700; color: var(--success);"></div>
+          </div>
+        </div>
+        <div id="compress-stats-summary" style="font-size: 0.8125rem; color: var(--text-muted); border-top: 1px dashed var(--border-subtle); padding-top: 0.5rem; display: flex; justify-content: space-between;">
+          <span>Target DPI: <strong id="compress-dpi-label" style="color: var(--text-secondary);">150 DPI</strong></span>
+          <span id="compress-est-label">Estimated savings: ~40% - 75%</span>
         </div>
       </div>
     `;
@@ -136,12 +156,29 @@ export class ModalManager {
 
     // Preset selector interactions
     const presetCards = this.bodyContent.querySelectorAll<HTMLElement>('.preset-card');
+    const qualitySlider = this.bodyContent.querySelector<HTMLInputElement>('#compress-quality-slider')!;
+    const qualityValueEl = this.bodyContent.querySelector<HTMLElement>('#compress-quality-value')!;
+    const dpiLabelEl = this.bodyContent.querySelector<HTMLElement>('#compress-dpi-label')!;
+
     presetCards.forEach((card) => {
       card.addEventListener('click', () => {
         presetCards.forEach((c) => c.classList.remove('active'));
         card.classList.add('active');
         selectedPreset = card.getAttribute('data-preset') as CompressionPreset;
+        const presetDpi = card.getAttribute('data-dpi') ?? '150';
+        const presetQ = parseFloat(card.getAttribute('data-quality') ?? '0.78');
+
+        currentQuality = presetQ;
+        qualitySlider.value = String(Math.round(presetQ * 100));
+        qualityValueEl.textContent = `${Math.round(presetQ * 100)}%`;
+        if (dpiLabelEl) dpiLabelEl.textContent = `${presetDpi} DPI`;
       });
+    });
+
+    qualitySlider.addEventListener('input', () => {
+      const qVal = parseInt(qualitySlider.value, 10);
+      currentQuality = qVal / 100;
+      qualityValueEl.textContent = `${qVal}%`;
     });
 
     this.footerActions.querySelector('#modal-cancel-btn')?.addEventListener('click', () => this.close());
@@ -153,7 +190,12 @@ export class ModalManager {
         progressOverlay.show('Compressing PDF...');
 
         const presetConfig = COMPRESSION_PRESETS[selectedPreset] ?? COMPRESSION_PRESETS['ebook']!;
-        const result = await compressPdf(documentBytes, presetConfig, (info) => {
+        const options = {
+          ...presetConfig,
+          quality: currentQuality,
+        };
+
+        const result = await compressPdf(documentBytes, options, (info) => {
           progressOverlay.update(info);
         });
 
@@ -161,10 +203,24 @@ export class ModalManager {
 
         const resultBox = this.bodyContent.querySelector<HTMLElement>('#compress-result-box');
         const resultSize = this.bodyContent.querySelector<HTMLElement>('#compress-result-size');
+        const estLabel = this.bodyContent.querySelector<HTMLElement>('#compress-est-label');
+
         if (resultBox && resultSize) {
           resultBox.style.display = 'block';
+          const savedBytes = result.originalSize - result.compressedSize;
           const savedPercent = Math.round((1 - result.ratio) * 100);
-          resultSize.textContent = `${formatBytes(result.compressedSize)} (${savedPercent > 0 ? `-${savedPercent}%` : 'Optimal'})`;
+
+          if (savedPercent > 0) {
+            resultSize.textContent = `${formatBytes(result.compressedSize)} (-${savedPercent}%)`;
+            if (estLabel) {
+              estLabel.innerHTML = `Saved <strong style="color: var(--success);">${formatBytes(savedBytes)}</strong> (${savedPercent}% smaller)`;
+            }
+          } else {
+            resultSize.textContent = `${formatBytes(result.compressedSize)} (Optimal)`;
+            if (estLabel) {
+              estLabel.textContent = 'File is already well-optimized';
+            }
+          }
         }
 
         // Change button to download
@@ -182,7 +238,7 @@ export class ModalManager {
           this.close();
         };
 
-        toast.show(`Compression complete! Size reduced to ${formatBytes(result.compressedSize)}`, 'success');
+        toast.show(`Compression complete! Size: ${formatBytes(result.compressedSize)}`, 'success');
       } catch (err: unknown) {
         progressOverlay.hide();
         startBtn.disabled = false;

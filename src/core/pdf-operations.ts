@@ -152,14 +152,21 @@ export function parseRangeExpression(expr: string, maxPages: number): number[][]
 async function embedImageSafely(doc: PDFDocument, file: File): Promise<PDFImage> {
   const arrayBuffer = await file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
+  const name = (file.name || '').toLowerCase();
+  const isJpg =
+    file.type === 'image/jpeg' ||
+    file.type === 'image/jpg' ||
+    file.type === 'image/pjpeg' ||
+    /\.(jpe?g)$/i.test(name);
+  const isPng = file.type === 'image/png' || /\.png$/i.test(name);
 
-  if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
+  if (isJpg) {
     try {
       return await doc.embedJpg(bytes);
     } catch {
       // Fallback via canvas if non-standard JPEG
     }
-  } else if (file.type === 'image/png') {
+  } else if (isPng) {
     try {
       return await doc.embedPng(bytes);
     } catch {
@@ -172,17 +179,52 @@ async function embedImageSafely(doc: PDFDocument, file: File): Promise<PDFImage>
 }
 
 async function embedViaCanvas(doc: PDFDocument, file: File): Promise<PDFImage> {
-  const imgBitmap = await createImageBitmap(file);
-  const canvas = document.createElement('canvas');
-  canvas.width = imgBitmap.width;
-  canvas.height = imgBitmap.height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not create offscreen canvas');
+  let imgBitmap: ImageBitmap | null = null;
+  let canvas: HTMLCanvasElement | null = null;
 
-  ctx.drawImage(imgBitmap, 0, 0);
+  if (typeof createImageBitmap === 'function') {
+    try {
+      imgBitmap = await createImageBitmap(file);
+      canvas = document.createElement('canvas');
+      canvas.width = imgBitmap.width;
+      canvas.height = imgBitmap.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not create offscreen canvas');
+      ctx.drawImage(imgBitmap, 0, 0);
+    } catch {
+      canvas = null;
+    } finally {
+      imgBitmap?.close();
+    }
+  }
+
+  if (!canvas) {
+    canvas = await new Promise<HTMLCanvasElement>((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || img.width;
+        c.height = img.naturalHeight || img.height;
+        const ctx = c.getContext('2d');
+        if (ctx) ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        resolve(c);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error(`Failed to load image: ${file.name}`));
+      };
+      img.src = url;
+    });
+  }
+
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas conversion failed'))), 'image/png');
+    canvas!.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas conversion failed'))), 'image/png');
   });
+
+  canvas.width = 0;
+  canvas.height = 0;
 
   const pngBytes = new Uint8Array(await blob.arrayBuffer());
   return await doc.embedPng(pngBytes);
@@ -229,7 +271,8 @@ export async function imagesToPdf(
       const availW = pageW - margin * 2;
       const availH = pageH - margin * 2;
 
-      const scale = Math.min(availW / imgW, availH / imgH, 1.0);
+      // Scale proportionally to fit within printable area
+      const scale = Math.min(availW / imgW, availH / imgH);
       const drawW = imgW * scale;
       const drawH = imgH * scale;
 
@@ -295,6 +338,10 @@ export async function pdfToImages(
       width: canvas.width,
       height: canvas.height,
     });
+
+    // Release canvas memory buffer immediately
+    canvas.width = 0;
+    canvas.height = 0;
 
     if (onProgress) {
       onProgress({

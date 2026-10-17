@@ -30,6 +30,7 @@ class MePdfApp {
   private toolbar: Toolbar | null = null;
   private visualGrid: VisualGrid | null = null;
   private fileInput: HTMLInputElement;
+  private pendingAction: string | null = null;
 
   constructor() {
     this.appEl = document.querySelector<HTMLElement>('#app')!;
@@ -216,6 +217,7 @@ class MePdfApp {
       onDeselectAll: () => this.deselectAll(),
       onInvertSelection: () => this.invertSelection(),
       onRotateSelected: (deg) => this.rotateSelected(deg),
+      onRotateAll: (deg) => this.rotateAll(deg),
       onDeleteSelected: () => this.deleteSelected(),
       onOpenSplit: () => this.openSplitModal(),
       onAddFiles: () => this.fileInput.click(),
@@ -227,6 +229,7 @@ class MePdfApp {
       onRotatePage: (pageId, deg) => this.rotateSinglePage(pageId, deg),
       onDeletePage: (pageId) => this.deleteSinglePage(pageId),
       onReorder: (from, to) => this.reorderPages(from, to),
+      onFilesDropped: (droppedFiles) => this.handleFiles(droppedFiles),
     });
   }
 
@@ -234,8 +237,11 @@ class MePdfApp {
   // FILE INGESTION & THUMBNAIL PIPELINE
   // ==========================================
   private async handleFiles(files: File[]): Promise<void> {
-    const pdfFiles = files.filter((f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
-    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+    const isPdf = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+    const isImage = (f: File) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|avif|bmp|gif)$/i.test(f.name);
+
+    const pdfFiles = files.filter(isPdf);
+    const imageFiles = files.filter(isImage);
 
     if (pdfFiles.length === 0 && imageFiles.length === 0) {
       toast.show('Please upload PDF or Image files.', 'error');
@@ -315,6 +321,13 @@ class MePdfApp {
       progressOverlay.hide();
       toast.show(`Imported ${this.pages.length} pages successfully!`, 'success');
       this.updateUI();
+
+      // Trigger any action that was pending file selection
+      if (this.pendingAction) {
+        const action = this.pendingAction;
+        this.pendingAction = null;
+        await this.handleTabSwitch(action);
+      }
     } catch (err: unknown) {
       progressOverlay.hide();
       const msg = err instanceof Error ? err.message : String(err);
@@ -376,16 +389,27 @@ class MePdfApp {
     this.updateUI();
   }
 
-  private rotateSelected(degrees: number): void {
-    const targetPages = this.pages.some((p) => p.selected)
-      ? this.pages.filter((p) => p.selected)
-      : this.pages;
+  private rotateAll(degrees: number): void {
+    if (this.pages.length === 0) return;
+    this.pages.forEach((p) => {
+      p.rotation = (p.rotation + degrees) % 360;
+    });
+    toast.show(`Rotated all ${this.pages.length} pages (+${degrees}°)`, 'info');
+    this.updateUI();
+  }
 
-    targetPages.forEach((p) => {
+  private rotateSelected(degrees: number): void {
+    const selectedPages = this.pages.filter((p) => p.selected);
+    if (selectedPages.length === 0) {
+      this.rotateAll(degrees);
+      return;
+    }
+
+    selectedPages.forEach((p) => {
       p.rotation = (p.rotation + degrees) % 360;
     });
 
-    toast.show(`Rotated ${targetPages.length} ${targetPages.length === 1 ? 'page' : 'pages'}`, 'info');
+    toast.show(`Rotated ${selectedPages.length} selected ${selectedPages.length === 1 ? 'page' : 'pages'} (+${degrees}°)`, 'info');
     this.updateUI();
   }
 
@@ -473,6 +497,36 @@ class MePdfApp {
   }
 
   // ==========================================
+  // ACTIVE DOCUMENT RESOLVER
+  // ==========================================
+  private async getActiveDocumentBytes(): Promise<{ docBytes: Uint8Array; docName: string }> {
+    if (this.pages.length === 0) {
+      throw new Error('No pages in workspace');
+    }
+
+    const firstDoc = this.documents.values().next().value as DocumentMetadata;
+    const isSingleDoc = this.documents.size === 1;
+    const isUnmodified =
+      isSingleDoc &&
+      this.pages.length === firstDoc.pageCount &&
+      this.pages.every((p, idx) => p.pageIndex === idx && p.rotation === 0);
+
+    if (isUnmodified) {
+      return { docBytes: firstDoc.fileBytes, docName: firstDoc.filename };
+    }
+
+    // Generate exact merged document representing current workspace state
+    progressOverlay.show('Preparing workspace document...');
+    const mergedBytes = await mergePages(this.pages, this.documents, (info) => {
+      progressOverlay.update(info);
+    });
+    progressOverlay.hide();
+
+    const baseName = isSingleDoc ? firstDoc.filename : 'mepdf_workspace.pdf';
+    return { docBytes: mergedBytes, docName: baseName };
+  }
+
+  // ==========================================
   // TOP NAV TAB ACTIONS
   // ==========================================
   private async handleTabSwitch(tab: string | null): Promise<void> {
@@ -488,23 +542,27 @@ class MePdfApp {
     }
 
     // For tools requiring an existing document or file
-    if (this.documents.size === 0) {
-      toast.show('Please upload a PDF document first to use this tool.', 'info');
+    if (this.pages.length === 0) {
+      this.pendingAction = tab;
+      toast.show('Please select a PDF document first.', 'info');
       this.fileInput.click();
       return;
     }
 
-    // Get the first loaded document bytes or current merged document
-    const firstDoc = this.documents.values().next().value as DocumentMetadata;
-    const docBytes = firstDoc.fileBytes;
-    const docName = firstDoc.filename;
+    try {
+      const { docBytes, docName } = await this.getActiveDocumentBytes();
 
-    if (tab === 'compress') {
-      modal.showCompressModal(docBytes, docName);
-    } else if (tab === 'pdf2img') {
-      modal.showPdfToImagesModal(docBytes, docName);
-    } else if (tab === 'extract-text') {
-      await modal.showExtractTextModal(docBytes, docName);
+      if (tab === 'compress') {
+        modal.showCompressModal(docBytes, docName);
+      } else if (tab === 'pdf2img') {
+        modal.showPdfToImagesModal(docBytes, docName);
+      } else if (tab === 'extract-text') {
+        await modal.showExtractTextModal(docBytes, docName);
+      }
+    } catch (err: unknown) {
+      progressOverlay.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Failed to prepare document: ${msg}`, 'error');
     }
   }
 }

@@ -141,6 +141,42 @@ describe('PDF operations - Merge & Split', () => {
     expect(page3.getRotation().angle).toBe(180);
   });
 
+  it('preserves intrinsic page rotation when merging', async () => {
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([400, 600]);
+    page.setRotation(degrees(90)); // Intrinsic 90 degree rotation
+    const docBytes = await doc.save();
+
+    const documentMap = new Map<string, DocumentMetadata>();
+    documentMap.set('doc-rotated', {
+      id: 'doc-rotated',
+      filename: 'Rotated.pdf',
+      size: docBytes.byteLength,
+      pageCount: 1,
+      fileBytes: docBytes,
+    });
+
+    const pagesToMerge: PDFPageItem[] = [
+      {
+        id: 'rot-p1',
+        docId: 'doc-rotated',
+        docName: 'Rotated.pdf',
+        pageIndex: 0,
+        displayPageNumber: 1,
+        rotation: 90, // Add 90 degrees in workspace
+        thumbnailDataUrl: '',
+        width: 400,
+        height: 600,
+        selected: false,
+      },
+    ];
+
+    const mergedBytes = await mergePages(pagesToMerge, documentMap);
+    const verifiedDoc = await PDFDocument.load(mergedBytes);
+    // 90 intrinsic + 90 added = 180
+    expect(verifiedDoc.getPage(0).getRotation().angle).toBe(180);
+  });
+
   it('splits document by ranges into separate PDF files', async () => {
     const docBytes = await createTestPdf(4, 'DocMulti');
     const documentMap = new Map<string, DocumentMetadata>();
@@ -180,5 +216,57 @@ describe('PDF operations - Merge & Split', () => {
   it('throws an error if merging an empty page list', async () => {
     const documentMap = new Map<string, DocumentMetadata>();
     await expect(mergePages([], documentMap)).rejects.toThrow('No pages selected to merge.');
+  });
+});
+
+describe('Compression Presets specifications', () => {
+  it('defines Screen (96 DPI), Ebook (150 DPI), and Print (300 DPI) presets accurately', async () => {
+    const { COMPRESSION_PRESETS } = await import('../src/core/pdf-compressor');
+    expect(COMPRESSION_PRESETS.screen?.dpi).toBe(96);
+    expect(COMPRESSION_PRESETS.ebook?.dpi).toBe(150);
+    expect(COMPRESSION_PRESETS.printer?.dpi).toBe(300);
+  });
+});
+
+describe('Images to PDF conversion', () => {
+  it('converts PNG image into a valid PDF document with A4 page fit', async () => {
+    const { imagesToPdf } = await import('../src/core/pdf-operations');
+    // 1x1 valid PNG
+    const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngBytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0));
+    const file = new File([pngBytes], 'pixel.png', { type: 'image/png' });
+
+    const pdfBytes = await imagesToPdf([file], { pageSize: 'A4' });
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.byteLength).toBeGreaterThan(0);
+
+    const doc = await PDFDocument.load(pdfBytes);
+    expect(doc.getPageCount()).toBe(1);
+  });
+});
+
+describe('ZIP packaging', () => {
+  it('packages extracted images into a downloadable ZIP', async () => {
+    const { createImagesZip } = await import('../src/core/pdf-operations');
+    const JSZip = (await import('jszip')).default;
+
+    const mockBlob = new Blob(['sample-image-data'], { type: 'image/png' });
+    const items = [
+      {
+        name: 'page_001.png',
+        blob: mockBlob,
+        dataUrl: 'data:image/png;base64,...',
+        pageNumber: 1,
+        width: 100,
+        height: 100,
+      },
+    ];
+
+    const zipBlob = await createImagesZip(items);
+    expect(zipBlob).toBeInstanceOf(Blob);
+
+    const zipArrayBuffer = await zipBlob.arrayBuffer();
+    const zip = await JSZip.loadAsync(zipArrayBuffer);
+    expect(zip.file('page_001.png')).not.toBeNull();
   });
 });

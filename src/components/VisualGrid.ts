@@ -1,4 +1,4 @@
-import { createIcons, RotateCw, Trash2, GripVertical } from 'lucide';
+import { createIcons, RotateCw, Trash2, GripVertical, ChevronLeft, ChevronRight } from 'lucide';
 import type { PDFPageItem } from '../core/types';
 
 export interface VisualGridEvents {
@@ -6,6 +6,7 @@ export interface VisualGridEvents {
   onRotatePage: (pageId: string, degrees: number) => void;
   onDeletePage: (pageId: string) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  onFilesDropped?: (files: File[]) => void;
 }
 
 export class VisualGrid {
@@ -46,6 +47,13 @@ export class VisualGrid {
     const isSelected = page.selected;
     const rotation = page.rotation % 360;
     const rotationBadge = rotation !== 0 ? `<span class="rotation-tag">${rotation}°</span>` : '';
+    const isTurned = rotation === 90 || rotation === 270;
+    const scale = isTurned && page.width > 0 && page.height > 0 
+      ? Math.min(1, page.width / page.height).toFixed(3) 
+      : '1';
+
+    const isFirst = index === 0;
+    const isLast = index === this.pages.length - 1;
 
     return `
       <div class="page-card ${isSelected ? 'selected' : ''}" 
@@ -67,23 +75,34 @@ export class VisualGrid {
           <img class="page-thumbnail-img" 
                src="${page.thumbnailDataUrl}" 
                alt="Page ${page.displayPageNumber}" 
-               style="transform: rotate(${rotation}deg);" 
+               style="transform: rotate(${rotation}deg) scale(${scale});" 
                loading="lazy" />
           ${rotationBadge}
         </div>
 
         <div class="page-card-footer">
-          <button class="page-action-btn page-rotate-btn" data-page-id="${page.id}" title="Rotate 90° clockwise">
-            <i data-lucide="rotate-cw" style="width: 14px; height: 14px;"></i>
-          </button>
-          
-          <span class="page-action-btn" style="cursor: grab;" title="Drag to reorder">
-            <i data-lucide="grip-vertical" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
-          </span>
+          <div style="display: flex; align-items: center; gap: 2px;">
+            <button class="page-action-btn page-move-left-btn" data-index="${index}" ${isFirst ? 'disabled style="opacity: 0.3; pointer-events: none;"' : ''} title="Move left">
+              <i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i>
+            </button>
+            <button class="page-action-btn page-move-right-btn" data-index="${index}" ${isLast ? 'disabled style="opacity: 0.3; pointer-events: none;"' : ''} title="Move right">
+              <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
+            </button>
+          </div>
 
-          <button class="page-action-btn delete-btn page-delete-btn" data-page-id="${page.id}" title="Delete this page">
-            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
-          </button>
+          <div style="display: flex; align-items: center; gap: 2px;">
+            <button class="page-action-btn page-rotate-btn" data-page-id="${page.id}" title="Rotate 90° clockwise">
+              <i data-lucide="rotate-cw" style="width: 14px; height: 14px;"></i>
+            </button>
+            
+            <span class="page-action-btn" style="cursor: grab;" title="Drag to reorder">
+              <i data-lucide="grip-vertical" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+            </span>
+
+            <button class="page-action-btn delete-btn page-delete-btn" data-page-id="${page.id}" title="Delete this page">
+              <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+            </button>
+          </div>
         </div>
 
       </div>
@@ -109,6 +128,20 @@ export class VisualGrid {
       rotateBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         this.events.onRotatePage(pageId, 90);
+      });
+
+      // Move left click
+      const moveLeftBtn = card.querySelector('.page-move-left-btn');
+      moveLeftBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (index > 0) this.events.onReorder(index, index - 1);
+      });
+
+      // Move right click
+      const moveRightBtn = card.querySelector('.page-move-right-btn');
+      moveRightBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (index < this.pages.length - 1) this.events.onReorder(index, index + 1);
       });
 
       // Delete click
@@ -156,6 +189,16 @@ export class VisualGrid {
       card.addEventListener('drop', (e) => {
         e.preventDefault();
         card.classList.remove('drag-over');
+
+        // Check if external files were dropped on the card
+        if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+          if (this.events.onFilesDropped) {
+            this.events.onFilesDropped(Array.from(e.dataTransfer.files));
+          }
+          return;
+        }
+
+        // Internal card reorder
         if (this.draggedIndex !== null && this.draggedIndex !== index) {
           this.events.onReorder(this.draggedIndex, index);
         }
@@ -174,6 +217,8 @@ export class VisualGrid {
         RotateCw,
         Trash2,
         GripVertical,
+        ChevronLeft,
+        ChevronRight,
       },
       nameAttr: 'data-lucide',
     });
