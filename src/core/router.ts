@@ -1,4 +1,12 @@
-export type ToolRoute = 'studio' | 'split' | 'compress' | 'img2pdf' | 'pdf2img' | 'extract-text';
+export type ToolRoute =
+  | 'studio'
+  | 'split'
+  | 'compress'
+  | 'img2pdf'
+  | 'pdf2img'
+  | 'extract-text'
+  | 'account'
+  | 'cloud-library';
 
 export const HASH_TO_ROUTE_MAP: Record<string, ToolRoute> = {
   '#/merge': 'studio',
@@ -10,6 +18,10 @@ export const HASH_TO_ROUTE_MAP: Record<string, ToolRoute> = {
   '#/images-to-pdf': 'img2pdf',
   '#/img2pdf': 'img2pdf',
   '#/extract-text': 'extract-text',
+  '#/account': 'account',
+  '#/auth': 'account',
+  '#/cloud-library': 'cloud-library',
+  '#/library': 'cloud-library',
 };
 
 export const ROUTE_TO_HASH_MAP: Record<ToolRoute, string> = {
@@ -19,6 +31,8 @@ export const ROUTE_TO_HASH_MAP: Record<ToolRoute, string> = {
   img2pdf: '#/images-to-pdf',
   pdf2img: '#/pdf-to-images',
   'extract-text': '#/extract-text',
+  account: '#/account',
+  'cloud-library': '#/cloud-library',
 };
 
 /**

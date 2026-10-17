@@ -1,4 +1,4 @@
-import { createIcons, RotateCw, RotateCcw, Trash2, CheckSquare, Square, Scissors, Plus, RefreshCw, X } from 'lucide';
+import { createIcons, RotateCw, RotateCcw, Trash2, CheckSquare, Square, Scissors, Plus, RefreshCw, X, Cloud } from 'lucide';
 import { t } from '../core/i18n';
 
 export interface ToolbarEvents {
@@ -11,6 +11,7 @@ export interface ToolbarEvents {
   onOpenSplit: () => void;
   onAddFiles: () => void;
   onClearAll: () => void;
+  onSaveToCloud?: () => void;
 }
 
 export class Toolbar {
@@ -72,6 +73,11 @@ export class Toolbar {
         </div>
 
         <div class="toolbar-right">
+          <button class="btn btn-secondary btn-save-cloud" id="toolbar-btn-save-cloud" title="${t('saveCloudBtnToolbar')}">
+            <i data-lucide="cloud" style="width: 15px; height: 15px; color: var(--primary);"></i>
+            <span>${t('saveCloudBtnToolbar')}</span>
+          </button>
+
           <button class="btn btn-secondary" id="toolbar-btn-add">
             <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
             <span>${t('toolbarAddFiles')}</span>
@@ -108,6 +114,7 @@ export class Toolbar {
         Plus,
         RefreshCw,
         X,
+        Cloud,
       },
       nameAttr: 'data-lucide',
     });
@@ -136,6 +143,10 @@ export class Toolbar {
 
     this.deleteBtn?.addEventListener('click', () => {
       this.events.onDeleteSelected();
+    });
+
+    this.container.querySelector('#toolbar-btn-save-cloud')?.addEventListener('click', () => {
+      this.events.onSaveToCloud?.();
     });
 
     this.container.querySelector('#toolbar-btn-add')?.addEventListener('click', () => {

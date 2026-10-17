@@ -36,6 +36,11 @@ import { LightboxModal } from './components/LightboxModal';
 import { t, getLanguage, setLanguage, onLanguageChange } from './core/i18n';
 import { saveWorkspaceState, loadWorkspaceState, clearWorkspaceState } from './core/workspace-storage';
 import { getCurrentRoute, setHashRoute, onHashChange, type ToolRoute } from './core/router';
+import type { CloudDocument } from './cloud/document-service';
+import { authModal } from './components/AuthModal';
+import { UserAccountMenu } from './components/UserAccountMenu';
+import { cloudLibraryModal } from './components/CloudLibraryModal';
+import { saveToCloudModal } from './components/SaveToCloudModal';
 
 class MePdfApp {
   private appEl: HTMLElement;
@@ -44,6 +49,7 @@ class MePdfApp {
   private toolbar: Toolbar | null = null;
   private visualGrid: VisualGrid | null = null;
   private lightboxModal: LightboxModal | null = null;
+  private userAccountMenu: UserAccountMenu | null = null;
   private fileInput: HTMLInputElement;
   private pendingAction: string | null = null;
   private undoStack: Array<{
@@ -109,6 +115,8 @@ class MePdfApp {
         </nav>
 
         <div class="nav-actions">
+          <div id="nav-user-account-container"></div>
+
           <button class="lang-switcher-btn" id="nav-lang-toggle-btn" title="Switch Language / สลับภาษา">
             <i data-lucide="globe" style="width: 14px; height: 14px;"></i>
             <span class="lang-opt ${lang === 'th' ? 'active' : ''}">TH</span>
@@ -309,6 +317,22 @@ class MePdfApp {
     });
 
     // Initialize sub-components
+    const accountContainer = this.appEl.querySelector<HTMLElement>('#nav-user-account-container');
+    if (accountContainer) {
+      this.userAccountMenu = new UserAccountMenu(accountContainer, {
+        onOpenCloudLibrary: () => {
+          cloudLibraryModal.open();
+        },
+        onOpenAuthModal: () => {
+          authModal.open();
+        },
+      });
+    }
+
+    cloudLibraryModal.setOptions({
+      onOpenInStudio: async (doc, bytes) => this.loadCloudDocument(doc, bytes),
+    });
+
     const controlsContainer = this.appEl.querySelector<HTMLElement>('#workspace-controls')!;
     const gridContainer = this.appEl.querySelector<HTMLElement>('#workspace-grid')!;
 
@@ -322,6 +346,7 @@ class MePdfApp {
       onOpenSplit: () => this.openSplitModal(),
       onAddFiles: () => this.fileInput.click(),
       onClearAll: () => this.clearAll(),
+      onSaveToCloud: () => this.handleSaveToCloud(),
     });
 
     this.visualGrid = new VisualGrid(gridContainer, {
@@ -766,6 +791,55 @@ class MePdfApp {
     }
   }
 
+  private async handleSaveToCloud(): Promise<void> {
+    if (this.pages.length === 0) {
+      toast.show(t('toastNoPagesToExport'), 'info');
+      return;
+    }
+
+    try {
+      const { docBytes, docName } = await this.getActiveDocumentBytes();
+      const firstPage = this.pages[0];
+      saveToCloudModal.open({
+        filename: docName,
+        fileBytes: docBytes,
+        pageCount: this.pages.length,
+        thumbnailDataUrl: firstPage?.thumbnailDataUrl,
+        onSuccess: () => {
+          this.userAccountMenu?.render();
+        },
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Could not prepare file: ${msg}`, 'error');
+    }
+  }
+
+  private async loadCloudDocument(doc: CloudDocument, bytes: Uint8Array): Promise<void> {
+    try {
+      progressOverlay.show(`Loading ${doc.filename}...`);
+      if (this.pages.length > 0) {
+        this.pages = [];
+        this.documents.clear();
+        this.undoStack = [];
+        clearThumbnailCache();
+      }
+
+      const virtualFile = new File([bytes as any], doc.filename, {
+        type: 'application/pdf',
+      });
+      await this.handleFiles([virtualFile]);
+      this.setActiveNavTab('studio');
+      setHashRoute('studio');
+      toast.show(`Loaded "${doc.filename}" from cloud library`, 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Failed to load cloud document: ${msg}`, 'error');
+    } finally {
+      progressOverlay.hide();
+    }
+  }
+
   private openSplitModal(): void {
     if (this.pages.length < 2) {
       toast.show(t('toastMinPagesToSplit'), 'info');
@@ -836,6 +910,18 @@ class MePdfApp {
     if (tab === 'studio') {
       this.setActiveNavTab('studio');
       setHashRoute('studio');
+      return;
+    }
+
+    if (tab === 'account') {
+      authModal.open({
+        onClose: () => this.resetNavTabToStudio(),
+      });
+      return;
+    }
+
+    if (tab === 'cloud-library') {
+      cloudLibraryModal.open();
       return;
     }
 
@@ -999,9 +1085,10 @@ class MePdfApp {
     const dropzoneFormats = this.appEl.querySelector('#dropzone-formats-label');
     if (dropzoneFormats) dropzoneFormats.textContent = t('dropzoneSupportedFormats');
 
-    // Re-render Toolbar and VisualGrid
+    // Re-render Toolbar, VisualGrid, and UserAccountMenu
     this.toolbar?.render();
     this.visualGrid?.setPages(this.pages);
+    this.userAccountMenu?.render();
   }
 }
 
