@@ -3160,3 +3160,220 @@ textarea:focus-visible,
     height: 400px;
   }
 }
+
+/* ========================================================
+   OBSIDIAN CHASSIS CRAFT AUDIT & PRECISION CONTROLS
+   - Dark precision scrollbars
+   - Inspector form controls (inputs, selects, tactile sliders)
+   - Canvas empty state styling
+   - Mobile touch-target decoupling (>=44px hit-box)
+   ======================================================== */
+
+/* Precision Obsidian Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  transition: background var(--duration-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+/* Inspector Form Controls */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.input-text, .input-select {
+  width: 100%;
+  background: rgba(21, 24, 33, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-sm);
+  color: #ffffff;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.8125rem;
+  transition: all var(--duration-fast);
+  box-sizing: border-box;
+}
+
+.input-text:focus, .input-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+  outline: none;
+  background: rgba(29, 34, 46, 0.95);
+}
+
+.input-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238d98ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  padding-right: 2rem;
+}
+
+/* Tactile Precision Slider */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+
+.slider:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px var(--primary-glow);
+  cursor: pointer;
+  transition: transform var(--duration-fast);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px var(--primary-glow);
+  cursor: pointer;
+}
+
+/* Checkbox & Button Utilities */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--primary);
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
+.btn-danger-outline {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: all var(--duration-fast);
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+}
+
+.btn-danger-outline:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-text-sm {
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.btn-subtext {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.text-left {
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.w-full {
+  width: 100%;
+}
+
+/* Canvas Empty State */
+.canvas-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  height: 100%;
+  color: var(--text-muted);
+  padding: 3rem;
+  text-align: center;
+}
+
+/* Touch Target Decoupling (Apple HIG / WCAG >=44px) */
+@media (pointer: coarse) {
+  .ribbon-pill-btn,
+  .telemetry-btn,
+  .filmstrip-action-btn,
+  .inspector-nav-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
