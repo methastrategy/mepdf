@@ -15,6 +15,7 @@
     "jszip": "^3.10.1",
     "lucide": "^1.59.0",
     "pdf-lib": "^1.17.1",
+    "pdf-lib-plus-encrypt": "^1.1.0",
     "pdfjs-dist": "^4.10.38"
   },
   "devDependencies": {

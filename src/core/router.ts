@@ -2,6 +2,7 @@ export type ToolRoute =
   | 'studio'
   | 'split'
   | 'compress'
+  | 'protect'
   | 'img2pdf'
   | 'pdf2img'
   | 'extract-text'
@@ -13,6 +14,8 @@ export const HASH_TO_ROUTE_MAP: Record<string, ToolRoute> = {
   '#/studio': 'studio',
   '#/split': 'split',
   '#/compress': 'compress',
+  '#/protect': 'protect',
+  '#/encrypt': 'protect',
   '#/pdf-to-images': 'pdf2img',
   '#/pdf2img': 'pdf2img',
   '#/images-to-pdf': 'img2pdf',
@@ -28,6 +31,7 @@ export const ROUTE_TO_HASH_MAP: Record<ToolRoute, string> = {
   studio: '#/merge',
   split: '#/split',
   compress: '#/compress',
+  protect: '#/protect',
   img2pdf: '#/images-to-pdf',
   pdf2img: '#/pdf-to-images',
   'extract-text': '#/extract-text',

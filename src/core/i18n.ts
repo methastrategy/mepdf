@@ -10,6 +10,7 @@ export const translations = {
     tabStudio: 'Visual Studio (Merge & Organize)',
     tabSplit: 'Split PDF',
     tabCompress: 'Compress',
+    tabProtect: 'Protect PDF',
     tabImg2Pdf: 'Images to PDF',
     tabPdf2Img: 'PDF to Images',
     tabExtractText: 'Extract Text',
@@ -91,6 +92,20 @@ export const translations = {
     compressAlreadyOptimal: 'File is already well-optimized (no further reduction possible)',
     compressStartBtn: 'Compress Now',
     compressDownloadBtn: 'Download Compressed',
+
+    // Protect modal
+    protectModalTitle: 'Protect PDF with Password',
+    protectModalDesc: 'Encrypt your PDF with standard security directly in your browser. Anyone opening the file must enter this password.',
+    protectPasswordLabel: 'Document Password',
+    protectPasswordConfirmLabel: 'Confirm Password',
+    protectPasswordPlaceholder: 'Enter password (min 3 chars)',
+    protectPasswordConfirmPlaceholder: 'Re-enter password to verify',
+    protectShowPassword: 'Show password',
+    protectHidePassword: 'Hide password',
+    protectBtn: 'Protect & Download',
+    toastProtectSuccess: 'PDF protected and downloaded successfully!',
+    toastPasswordMismatch: 'Passwords do not match',
+    toastPasswordMinLength: 'Password must be at least 3 characters',
 
     // PDF to Images modal
     pdf2imgModalTitle: 'Convert PDF Pages to Images',
@@ -236,6 +251,7 @@ export const translations = {
     tabStudio: 'Visual Studio (รวมและจัดหน้า)',
     tabSplit: 'แยกหน้า PDF',
     tabCompress: 'บีบอัดไฟล์',
+    tabProtect: 'ล็อกรหัสผ่าน',
     tabImg2Pdf: 'รูปภาพเป็น PDF',
     tabPdf2Img: 'PDF เป็นรูปภาพ',
     tabExtractText: 'ดึงข้อความ',
@@ -317,6 +333,20 @@ export const translations = {
     compressAlreadyOptimal: 'ไฟล์มีขนาดกะทัดรัดอยู่แล้ว (ไม่สามารถลดขนาดลงได้อีก)',
     compressStartBtn: 'บีบอัดทันที',
     compressDownloadBtn: 'ดาวน์โหลดไฟล์บีบอัด',
+
+    // Protect modal
+    protectModalTitle: 'ล็อกรหัสผ่านเอกสาร PDF',
+    protectModalDesc: 'เข้ารหัสเอกสาร PDF ด้วยมาตรฐานความปลอดภัยสากล ทำงานบนเครื่องของคุณ 100% ผู้ที่เปิดไฟล์ต้องใส่รหัสผ่านนี้จึงจะอ่านได้',
+    protectPasswordLabel: 'รหัสผ่านเปิดเอกสาร',
+    protectPasswordConfirmLabel: 'ยืนยันรหัสผ่านอีกครั้ง',
+    protectPasswordPlaceholder: 'ใส่รหัสผ่าน (อย่างน้อย 3 ตัวอักษร)',
+    protectPasswordConfirmPlaceholder: 'พิมพ์รหัสผ่านเดิมซ้ำเพื่อยืนยัน',
+    protectShowPassword: 'แสดงรหัสผ่าน',
+    protectHidePassword: 'ซ่อนรหัสผ่าน',
+    protectBtn: 'ล็อกรหัสและดาวน์โหลด',
+    toastProtectSuccess: 'ล็อกรหัสผ่านและดาวน์โหลด PDF สำเร็จแล้ว!',
+    toastPasswordMismatch: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน',
+    toastPasswordMinLength: 'รหัสผ่านต้องมีความยาวอย่างน้อย 3 ตัวอักษร',
 
     // PDF to Images modal
     pdf2imgModalTitle: 'แปลงหน้า PDF เป็นรูปภาพ',

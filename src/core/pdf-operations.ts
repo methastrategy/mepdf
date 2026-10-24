@@ -1,4 +1,5 @@
 import { PDFDocument, degrees, type PDFImage } from 'pdf-lib';
+import { PDFDocument as PDFDocumentEncrypt } from 'pdf-lib-plus-encrypt';
 import JSZip from 'jszip';
 import type {
   PDFPageItem,
@@ -413,4 +414,24 @@ export async function extractText(
   } finally {
     await destroyPdfDocument(pdfDoc);
   }
+}
+
+/**
+ * Encrypts and password-protects a PDF document with standard PDF security.
+ */
+export async function protectPdf(
+  fileBytes: Uint8Array,
+  userPassword: string,
+  ownerPassword?: string
+): Promise<Uint8Array> {
+  const pwd = userPassword.trim();
+  if (!pwd) {
+    throw new Error('Password cannot be empty');
+  }
+  const doc = await PDFDocumentEncrypt.load(fileBytes, { ignoreEncryption: true });
+  await doc.encrypt({
+    userPassword: pwd,
+    ownerPassword: ownerPassword && ownerPassword.trim() ? ownerPassword.trim() : pwd,
+  });
+  return await doc.save();
 }

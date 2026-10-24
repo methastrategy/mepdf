@@ -14,6 +14,7 @@ import {
   Plus,
   Scissors,
   Globe,
+  Lock,
 } from 'lucide';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -101,6 +102,10 @@ class MePdfApp {
             <i data-lucide="minimize-2" style="width: 15px; height: 15px;"></i>
             <span>${t('tabCompress')}</span>
           </button>
+          <button class="nav-tab-btn" data-tab="protect">
+            <i data-lucide="lock" style="width: 15px; height: 15px;"></i>
+            <span>${t('tabProtect')}</span>
+          </button>
           <button class="nav-tab-btn" data-tab="img2pdf">
             <i data-lucide="image" style="width: 15px; height: 15px;"></i>
             <span>${t('tabImg2Pdf')}</span>
@@ -179,6 +184,7 @@ class MePdfApp {
         Plus,
         Scissors,
         Globe,
+        Lock,
       },
       nameAttr: 'data-lucide',
     });
@@ -989,6 +995,8 @@ class MePdfApp {
 
       if (tab === 'compress') {
         modal.showCompressModal(docBytes, docName, password);
+      } else if (tab === 'protect') {
+        modal.showProtectModal(docBytes, docName);
       } else if (tab === 'pdf2img') {
         modal.showPdfToImagesModal(docBytes, docName, password);
       } else if (tab === 'extract-text') {
@@ -1049,6 +1057,7 @@ class MePdfApp {
       studio: t('tabStudio'),
       split: t('tabSplit'),
       compress: t('tabCompress'),
+      protect: t('tabProtect'),
       img2pdf: t('tabImg2Pdf'),
       pdf2img: t('tabPdf2Img'),
       'extract-text': t('tabExtractText'),

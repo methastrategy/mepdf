@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { splitPagesByRanges, mergePages } from '../src/core/pdf-operations';
+import { splitPagesByRanges, mergePages, protectPdf } from '../src/core/pdf-operations';
 import { getDefaultSplitRange } from '../src/components/Modal';
 import {
   clearThumbnailCache,
@@ -306,5 +306,32 @@ describe('Filename preservation and compression paradox invariants', () => {
     const effective = computeCompressionResult(1000, 600);
     expect(effective.ineffective).toBe(false);
     expect(effective.ratio).toBe(0.6);
+  });
+});
+
+describe('PDF Password Protection (protectPdf)', () => {
+  it('throws an error if password is empty or whitespace', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([200, 200]);
+    const bytes = await doc.save();
+
+    await expect(protectPdf(bytes, '')).rejects.toThrow('Password cannot be empty');
+    await expect(protectPdf(bytes, '   ')).rejects.toThrow('Password cannot be empty');
+  });
+
+  it('encrypts a PDF document with standard password security', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([300, 300]);
+    const bytes = await doc.save();
+
+    const protectedBytes = await protectPdf(bytes, 'mepdf-secure-pass');
+    expect(protectedBytes).toBeInstanceOf(Uint8Array);
+    expect(protectedBytes.length).toBeGreaterThan(bytes.length);
+
+    // Verify standard PDF /Encrypt dictionary is present in the output binary
+    const binaryString = Array.from(protectedBytes.slice(0, 4000))
+      .map((b) => String.fromCharCode(b))
+      .join('');
+    expect(binaryString).toContain('/Encrypt');
   });
 });
