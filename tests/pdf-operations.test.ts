@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { splitPagesByRanges, mergePages, protectPdf, addWatermarkToPdf } from '../src/core/pdf-operations';
+import { splitPagesByRanges, mergePages, protectPdf, addWatermarkToPdf, addPageNumbersToPdf } from '../src/core/pdf-operations';
 import { getDefaultSplitRange } from '../src/components/Modal';
 import {
   clearThumbnailCache,
@@ -376,6 +376,49 @@ describe('PDF Watermark Engine (addWatermarkToPdf)', () => {
     });
 
     const verifiedDoc = await PDFDocument.load(watermarked);
+    expect(verifiedDoc.getPageCount()).toBe(3);
+  });
+});
+
+describe('Automated Page Numbering Engine (addPageNumbersToPdf)', () => {
+  it('stamps page numbers in "page_n_of_total" format onto all pages', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([500, 700]);
+    doc.addPage([500, 700]);
+    const originalBytes = await doc.save();
+
+    const numberedBytes = await addPageNumbersToPdf(originalBytes, {
+      format: 'page_n_of_total',
+      position: 'bottom-center',
+      fontSize: 10,
+      margin: 30,
+    });
+
+    expect(numberedBytes).toBeInstanceOf(Uint8Array);
+    expect(numberedBytes.length).toBeGreaterThan(originalBytes.length);
+
+    const verifiedDoc = await PDFDocument.load(numberedBytes);
+    expect(verifiedDoc.getPageCount()).toBe(2);
+  });
+
+  it('supports custom formatting template and skipping the cover page', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([500, 700]); // Cover (page 0)
+    doc.addPage([500, 700]); // Content (page 1)
+    doc.addPage([500, 700]); // Content (page 2)
+    const originalBytes = await doc.save();
+
+    const numberedBytes = await addPageNumbersToPdf(originalBytes, {
+      format: 'custom',
+      customTemplate: 'P. {n} of {total}',
+      position: 'bottom-right',
+      startFromIndex: 1, // Skip cover page 0
+      startPageNumber: 1,
+      fontSize: 11,
+      margin: 25,
+    });
+
+    const verifiedDoc = await PDFDocument.load(numberedBytes);
     expect(verifiedDoc.getPageCount()).toBe(3);
   });
 });

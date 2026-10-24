@@ -84,3 +84,29 @@ export interface WatermarkOptions {
   position?: WatermarkPosition;
   pageRange?: string;
 }
+
+export type PageNumberFormat =
+  | 'page_n'
+  | 'page_n_of_total'
+  | 'number_only'
+  | 'n_slash_total'
+  | 'custom';
+
+export type PageNumberPosition =
+  | 'bottom-center'
+  | 'bottom-right'
+  | 'bottom-left'
+  | 'top-center'
+  | 'top-right'
+  | 'top-left';
+
+export interface PageNumberOptions {
+  format: PageNumberFormat;
+  customTemplate?: string;
+  position: PageNumberPosition;
+  startPageNumber?: number;
+  startFromIndex?: number;
+  fontSize?: number;
+  color?: { r: number; g: number; b: number };
+  margin?: number;
+}

@@ -8,6 +8,7 @@ import type {
   ExtractedImageItem,
   ProgressCallback,
   WatermarkOptions,
+  PageNumberOptions,
 } from './types';
 import { loadPdfDocument, renderPageToCanvas, extractTextFromDoc, destroyPdfDocument } from './pdf-renderer';
 
@@ -571,6 +572,105 @@ export async function addWatermarkToPdf(
     if (onProgress) {
       onProgress({
         stage: 'Applying watermark',
+        current: i + 1,
+        total,
+        percent: Math.round(((i + 1) / total) * 100),
+      });
+    }
+  }
+
+  return await doc.save();
+}
+
+/**
+ * Automatically stamps formatted page numbers onto PDF pages.
+ */
+export async function addPageNumbersToPdf(
+  fileBytes: Uint8Array,
+  options: PageNumberOptions,
+  onProgress?: ProgressCallback
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
+  const total = doc.getPageCount();
+  if (total === 0) {
+    throw new Error('PDF has no pages to number');
+  }
+
+  const {
+    format = 'page_n_of_total',
+    customTemplate,
+    position = 'bottom-center',
+    startPageNumber = 1,
+    startFromIndex = 0,
+    fontSize = 10,
+    color = { r: 0.25, g: 0.25, b: 0.25 },
+    margin = 28,
+  } = options;
+
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const textColor = rgb(color.r, color.g, color.b);
+
+  for (let i = 0; i < total; i++) {
+    if (i < startFromIndex) continue;
+
+    const page = doc.getPage(i);
+    const { width: pWidth, height: pHeight } = page.getSize();
+    const currentNumber = startPageNumber + (i - startFromIndex);
+
+    let text = '';
+    switch (format) {
+      case 'page_n':
+        text = `Page ${currentNumber}`;
+        break;
+      case 'page_n_of_total':
+        text = `Page ${currentNumber} of ${total}`;
+        break;
+      case 'number_only':
+        text = `${currentNumber}`;
+        break;
+      case 'n_slash_total':
+        text = `${currentNumber}/${total}`;
+        break;
+      case 'custom':
+        text = (customTemplate || 'Page {n} of {total}')
+          .replace(/\{n\}/g, String(currentNumber))
+          .replace(/\{total\}/g, String(total));
+        break;
+    }
+
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+    const textHeight = font.heightAtSize(fontSize);
+
+    let x = (pWidth - textWidth) / 2;
+    let y = margin;
+
+    // Horizontal alignment
+    if (position.includes('left')) {
+      x = margin;
+    } else if (position.includes('right')) {
+      x = pWidth - margin - textWidth;
+    } else {
+      x = (pWidth - textWidth) / 2;
+    }
+
+    // Vertical alignment
+    if (position.startsWith('top')) {
+      y = pHeight - margin - textHeight;
+    } else {
+      y = margin;
+    }
+
+    page.drawText(text, {
+      x,
+      y,
+      size: fontSize,
+      font,
+      color: textColor,
+    });
+
+    if (onProgress) {
+      onProgress({
+        stage: 'Numbering pages',
         current: i + 1,
         total,
         percent: Math.round(((i + 1) / total) * 100),
