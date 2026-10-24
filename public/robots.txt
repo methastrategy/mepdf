@@ -1,0 +1,5 @@
+# robots.txt for mePDF — Pure Client-Side PDF Studio
+User-agent: *
+Allow: /
+
+Sitemap: https://mepdf.vercel.app/sitemap.xml

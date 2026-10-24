@@ -6,7 +6,15 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons/*.png'],
+      includeAssets: [
+        'favicon.svg',
+        'favicon.ico',
+        'apple-touch-icon.png',
+        'robots.txt',
+        'sitemap.xml',
+        'hero_mepdf_studio.jpg',
+        'icons/*.png',
+      ],
       manifest: {
         name: 'mePDF — Pure Client-Side PDF Studio',
         short_name: 'mePDF',
@@ -35,8 +43,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,mjs}'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,mjs,jpg,jpeg,webp}'],
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
