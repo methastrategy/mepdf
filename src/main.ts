@@ -12,6 +12,7 @@ import {
   DownloadCloud,
   ShieldCheck,
   Plus,
+  Minus,
   Scissors,
   Globe,
   Lock,
@@ -19,6 +20,10 @@ import {
   Hash,
   Tag,
   Sparkles,
+  RotateCw,
+  Trash2,
+  Undo2,
+  LayoutGrid,
 } from 'lucide';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -31,10 +36,14 @@ import {
   removeDocThumbnails,
 } from './core/pdf-renderer';
 import { imagesToPdf } from './core/pdf-operations';
+import { compressPdf } from './core/pdf-compressor';
 import { pdfWorker } from './core/worker-client';
 import { readFileAsUint8Array, downloadBytes } from './utils/file-utils';
 import { Toolbar } from './components/Toolbar';
 import { VisualGrid } from './components/VisualGrid';
+import { CockpitFilmstrip } from './components/CockpitFilmstrip';
+import { CockpitCanvas } from './components/CockpitCanvas';
+import { CockpitInspector, type InspectorTab } from './components/CockpitInspector';
 import { modal } from './components/Modal';
 import { toast } from './components/Toast';
 import { progressOverlay } from './components/ProgressOverlay';
@@ -49,12 +58,34 @@ import { UserAccountMenu } from './components/UserAccountMenu';
 import { cloudLibraryModal } from './components/CloudLibraryModal';
 import { saveToCloudModal } from './components/SaveToCloudModal';
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const clean = hex.replace('#', '');
+  const num = parseInt(clean, 16);
+  if (isNaN(num)) return { r: 0, g: 0, b: 0 };
+  return {
+    r: ((num >> 16) & 255) / 255,
+    g: ((num >> 8) & 255) / 255,
+    b: (num & 255) / 255,
+  };
+}
+
 class MePdfApp {
   private appEl: HTMLElement;
   private documents = new Map<string, DocumentMetadata>();
   private pages: PDFPageItem[] = [];
+
+  // Studio Cockpit Components
+  private cockpitFilmstrip: CockpitFilmstrip | null = null;
+  private cockpitCanvas: CockpitCanvas | null = null;
+  private cockpitInspector: CockpitInspector | null = null;
+  private activePageId: string | null = null;
+  private activeViewMode: 'cockpit' | 'grid' = 'cockpit';
+
+  // Legacy Grid & Toolbar components
   private toolbar: Toolbar | null = null;
   private visualGrid: VisualGrid | null = null;
+
+  // Modals & Menu
   private lightboxModal: LightboxModal | null = null;
   private userAccountMenu: UserAccountMenu | null = null;
   private fileInput: HTMLInputElement;
@@ -78,6 +109,7 @@ class MePdfApp {
     this.lightboxModal = new LightboxModal();
 
     this.renderShell();
+    this.initCockpitComponents();
     this.initEventListeners();
     this.initRouterAndStorage();
     this.updateUI();
@@ -86,84 +118,78 @@ class MePdfApp {
   private renderShell(): void {
     const lang = getLanguage();
     this.appEl.innerHTML = `
-      <header class="navbar">
-        <div class="brand-section">
-          <div class="brand-logo">
+      <!-- Top Command Ribbon (BMW Neue Klasse Luxury Style) -->
+      <header class="command-ribbon navbar">
+        <div class="ribbon-brand-section">
+          <div class="ribbon-logo">
             <span>mePDF</span>
           </div>
-          <span class="brand-badge" id="brand-badge-el">${t('brandBadge')}</span>
+          <span class="ribbon-badge" id="brand-badge-el">STUDIO COCKPIT</span>
+          <span class="ribbon-doc-info" id="ribbon-doc-info" style="display: none;"></span>
         </div>
 
-        <nav class="nav-tabs">
-          <button class="nav-tab-btn active" data-tab="studio">
-            <i data-lucide="layers" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabStudio')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="split">
-            <i data-lucide="scissors" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabSplit')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="compress">
-            <i data-lucide="minimize-2" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabCompress')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="protect">
-            <i data-lucide="lock" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabProtect')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="watermark">
-            <i data-lucide="stamp" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabWatermark')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="page-numbers">
-            <i data-lucide="hash" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabNumbering')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="metadata">
-            <i data-lucide="tag" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabMetadata')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="img2pdf">
-            <i data-lucide="image" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabImg2Pdf')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="pdf2img">
-            <i data-lucide="image" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabPdf2Img')}</span>
-          </button>
-          <button class="nav-tab-btn" data-tab="extract-text">
-            <i data-lucide="file-text" style="width: 15px; height: 15px;"></i>
-            <span>${t('tabExtractText')}</span>
-          </button>
-        </nav>
+        <div class="ribbon-center-section">
+          <div class="ribbon-pill-group">
+            <button class="ribbon-pill-btn active" id="ribbon-view-cockpit-btn" data-view="cockpit" title="3-Pane Studio Cockpit View">
+              <i data-lucide="layers" style="width: 14px; height: 14px;"></i>
+              <span id="ribbon-label-cockpit">${t('viewCockpit') || 'Cockpit'}</span>
+            </button>
+            <button class="ribbon-pill-btn" id="ribbon-view-grid-btn" data-view="grid" title="Full Grid Macro Overview">
+              <i data-lucide="layout-grid" style="width: 14px; height: 14px;"></i>
+              <span id="ribbon-label-grid">${t('viewGrid') || 'Grid'}</span>
+            </button>
+          </div>
 
-        <div class="nav-actions">
+          <div class="ribbon-zoom-group">
+            <button class="ribbon-zoom-btn" id="ribbon-zoom-out" title="Zoom Out">
+              <i data-lucide="minus" style="width: 13px; height: 13px;"></i>
+            </button>
+            <span class="ribbon-zoom-val" id="ribbon-zoom-val">100%</span>
+            <button class="ribbon-zoom-btn" id="ribbon-zoom-in" title="Zoom In">
+              <i data-lucide="plus" style="width: 13px; height: 13px;"></i>
+            </button>
+          </div>
+
+          <button class="btn btn-ghost btn-sm" id="ribbon-undo-btn" title="Undo (Ctrl+Z)" style="display: none;">
+            <i data-lucide="undo-2" style="width: 14px; height: 14px;"></i>
+          </button>
+        </div>
+
+        <div class="ribbon-right-section nav-actions">
+          <button class="btn btn-secondary btn-sm" id="ribbon-add-files-btn" title="Add files to workspace">
+            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+            <span id="ribbon-add-files-label">${t('toolbarAddFiles') || 'Add'}</span>
+          </button>
+
           <div id="nav-user-account-container"></div>
 
           <button class="theme-switcher-btn" id="nav-theme-toggle-btn" title="Toggle BMW Neue Klasse Luxury Theme">
-            <i data-lucide="sparkles" style="width: 14px; height: 14px; color: var(--primary);"></i>
+            <i data-lucide="sparkles" style="width: 13px; height: 13px; color: var(--primary);"></i>
             <span id="nav-theme-label">BMW</span>
           </button>
 
           <button class="lang-switcher-btn" id="nav-lang-toggle-btn" title="Switch Language / สลับภาษา">
-            <i data-lucide="globe" style="width: 14px; height: 14px;"></i>
+            <i data-lucide="globe" style="width: 13px; height: 13px;"></i>
             <span class="lang-opt ${lang === 'th' ? 'active' : ''}">TH</span>
             <span class="lang-sep">/</span>
             <span class="lang-opt ${lang === 'en' ? 'active' : ''}">EN</span>
           </button>
 
-          <button class="btn btn-secondary" id="nav-install-btn" style="display: none;" title="${t('navInstall')}">
-            <i data-lucide="download-cloud" style="width: 15px; height: 15px;"></i>
+          <button class="btn btn-secondary btn-sm" id="nav-install-btn" style="display: none;" title="${t('navInstall')}">
+            <i data-lucide="download-cloud" style="width: 14px; height: 14px;"></i>
             <span>${t('navInstall')}</span>
           </button>
+
           <button class="btn btn-primary" id="nav-export-btn" title="${t('navExport')} (Ctrl+S)">
-            <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+            <i data-lucide="download" style="width: 15px; height: 15px;"></i>
             <span id="nav-export-label">${t('navExport')}</span>
           </button>
         </div>
       </header>
 
+      <!-- Main Workspace Container -->
       <main class="workspace-main" id="workspace-main">
+        <!-- Landing Dropzone Area -->
         <div id="dropzone-area" class="dropzone-container">
           <div class="dropzone-icon">
             <i data-lucide="upload" style="width: 36px; height: 36px;"></i>
@@ -184,12 +210,191 @@ class MePdfApp {
           </div>
         </div>
 
+        <!-- 3-Pane Studio Cockpit Workspace -->
+        <div id="cockpit-workspace" class="cockpit-workspace" style="display: none;">
+          <div id="cockpit-filmstrip-pane" class="cockpit-filmstrip"></div>
+          <div id="cockpit-canvas-pane" class="cockpit-canvas"></div>
+          <div id="cockpit-inspector-pane" class="cockpit-inspector"></div>
+        </div>
+
+        <!-- Full Grid Workspace Controls & Grid -->
         <div id="workspace-controls" style="display: none;"></div>
         <div id="workspace-grid" style="display: none;"></div>
       </main>
     `;
 
     this.refreshIcons();
+  }
+
+  private initCockpitComponents(): void {
+    const filmstripPane = this.appEl.querySelector<HTMLElement>('#cockpit-filmstrip-pane')!;
+    const canvasPane = this.appEl.querySelector<HTMLElement>('#cockpit-canvas-pane')!;
+    const inspectorPane = this.appEl.querySelector<HTMLElement>('#cockpit-inspector-pane')!;
+
+    // 1. Filmstrip Rail
+    this.cockpitFilmstrip = new CockpitFilmstrip(filmstripPane, {
+      onSelectPage: (pageId) => {
+        this.activePageId = pageId;
+        this.syncCockpitCanvas();
+      },
+      onToggleSelect: (pageId) => this.togglePageSelect(pageId),
+      onRotatePage: (pageId, deg) => this.rotateSinglePage(pageId, deg),
+      onDeletePage: (pageId) => this.deleteSinglePage(pageId),
+      onReorder: (from, to) => this.reorderPages(from, to),
+      onSelectAll: () => this.selectAll(),
+      onDeselectAll: () => this.deselectAll(),
+      onRotateSelected: (deg) => this.rotateSelected(deg),
+      onDeleteSelected: () => this.deleteSelected(),
+    });
+
+    // 2. Live Canvas Stage
+    this.cockpitCanvas = new CockpitCanvas(canvasPane, {
+      onPrevPage: () => this.navigatePage(-1),
+      onNextPage: () => this.navigatePage(1),
+      onRotateActive: (deg) => {
+        if (this.activePageId) this.rotateSinglePage(this.activePageId, deg);
+      },
+      onZoomChange: (zoom) => {
+        const val = this.appEl.querySelector<HTMLElement>('#ribbon-zoom-val');
+        if (val) val.textContent = `${Math.round(zoom * 100)}%`;
+      },
+    });
+
+    // 3. Property Inspector Panel
+    this.cockpitInspector = new CockpitInspector(inspectorPane, {
+      onTabChange: (tab) => {
+        setHashRoute(tab as ToolRoute);
+      },
+      onRotateSelected: (deg) => this.rotateSelected(deg),
+      onRotateAll: (deg) => this.rotateAll(deg),
+      onDeleteSelected: () => this.deleteSelected(),
+      onDuplicateActive: () => this.duplicateActivePage(),
+      onOpenSplit: () => this.openSplitModal(),
+      // Watermark
+      onWatermarkPreviewChange: (state) => {
+        this.cockpitCanvas?.setWatermarkPreview(state);
+      },
+      onApplyWatermark: async (options) => {
+        await this.handleApplyWatermark(options);
+      },
+      // Page Numbers
+      onPageNumberPreviewChange: (state) => {
+        this.cockpitCanvas?.setPageNumberPreview(state);
+      },
+      onApplyPageNumbers: async (options) => {
+        await this.handleApplyPageNumbers(options);
+      },
+      // Compress
+      onApplyCompress: async (options) => {
+        await this.handleApplyCompress(options);
+      },
+      // Protect
+      onApplyProtect: async (password) => {
+        await this.handleApplyProtect(password);
+      },
+      // Metadata
+      onApplyMetadata: async (meta) => {
+        await this.handleApplyMetadata(meta);
+      },
+      onSanitizeMetadata: async () => {
+        await this.handleSanitizeMetadata();
+      },
+      // Convert
+      onImagesToPdf: () => {
+        this.handleTabSwitch('img2pdf');
+      },
+      onPdfToImages: () => {
+        this.handleTabSwitch('pdf2img');
+      },
+      onExtractText: () => {
+        this.handleTabSwitch('extract-text');
+      },
+    });
+
+    // Sub-components: User Account Menu
+    const accountContainer = this.appEl.querySelector<HTMLElement>('#nav-user-account-container');
+    if (accountContainer) {
+      this.userAccountMenu = new UserAccountMenu(accountContainer, {
+        onOpenCloudLibrary: () => cloudLibraryModal.open(),
+        onOpenAuthModal: () => authModal.open(),
+      });
+    }
+
+    cloudLibraryModal.setOptions({
+      onOpenInStudio: async (doc, bytes) => this.loadCloudDocument(doc, bytes),
+      onClose: () => this.resetNavTabToStudio(),
+    });
+
+    // Full Grid and Toolbar components
+    const controlsContainer = this.appEl.querySelector<HTMLElement>('#workspace-controls')!;
+    const gridContainer = this.appEl.querySelector<HTMLElement>('#workspace-grid')!;
+
+    this.toolbar = new Toolbar(controlsContainer, {
+      onSelectAll: () => this.toggleSelectAll(),
+      onDeselectAll: () => this.deselectAll(),
+      onInvertSelection: () => this.invertSelection(),
+      onRotateSelected: (deg) => this.rotateSelected(deg),
+      onRotateAll: (deg) => this.rotateAll(deg),
+      onDeleteSelected: () => this.deleteSelected(),
+      onOpenSplit: () => this.openSplitModal(),
+      onAddFiles: () => this.fileInput.click(),
+      onClearAll: () => this.clearAll(),
+      onSaveToCloud: () => this.handleSaveToCloud(),
+    });
+
+    this.toolbar.setAuthenticated(authService.isAuthenticated());
+    authService.onAuthStateChange((user) => {
+      this.toolbar?.setAuthenticated(Boolean(user));
+    });
+
+    this.visualGrid = new VisualGrid(gridContainer, {
+      onToggleSelect: (pageId) => this.togglePageSelect(pageId),
+      onRotatePage: (pageId, deg) => this.rotateSinglePage(pageId, deg),
+      onDeletePage: (pageId) => this.deleteSinglePage(pageId),
+      onReorder: (from, to) => this.reorderPages(from, to),
+      onZoomPage: (pageId) => this.lightboxModal?.open(pageId, this.pages, this.documents),
+      onFilesDropped: (droppedFiles) => this.handleFiles(droppedFiles),
+    });
+  }
+
+  private syncCockpitCanvas(): void {
+    if (!this.cockpitCanvas) return;
+    if (this.pages.length === 0) {
+      this.cockpitCanvas.setActivePage(null, 0, 0);
+      return;
+    }
+    const idx = this.pages.findIndex((p) => p.id === this.activePageId);
+    const activeIdx = idx >= 0 ? idx : 0;
+    const activePage = this.pages[activeIdx] || null;
+    this.cockpitCanvas.setActivePage(activePage, activeIdx, this.pages.length);
+  }
+
+  private navigatePage(delta: number): void {
+    if (this.pages.length === 0) return;
+    const curIdx = this.pages.findIndex((p) => p.id === this.activePageId);
+    const nextIdx = Math.max(0, Math.min(this.pages.length - 1, (curIdx >= 0 ? curIdx : 0) + delta));
+    const nextItem = this.pages[nextIdx];
+    if (nextItem) {
+      this.activePageId = nextItem.id;
+      this.cockpitFilmstrip?.setActivePageId(nextItem.id);
+      this.syncCockpitCanvas();
+    }
+  }
+
+  private duplicateActivePage(): void {
+    if (this.pages.length === 0 || !this.activePageId) return;
+    const idx = this.pages.findIndex((p) => p.id === this.activePageId);
+    if (idx === -1) return;
+    const orig = this.pages[idx]!;
+    const duplicate: PDFPageItem = {
+      ...orig,
+      id: `page_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      selected: false,
+    };
+    this.pages.splice(idx + 1, 0, duplicate);
+    this.activePageId = duplicate.id;
+    this.updateUI();
+    toast.show(`Duplicated page ${idx + 1}`, 'success');
   }
 
   private refreshIcons(): void {
@@ -204,6 +409,7 @@ class MePdfApp {
         DownloadCloud,
         ShieldCheck,
         Plus,
+        Minus,
         Scissors,
         Globe,
         Lock,
@@ -211,16 +417,25 @@ class MePdfApp {
         Hash,
         Tag,
         Sparkles,
+        RotateCw,
+        Trash2,
+        Undo2,
+        LayoutGrid,
       },
       nameAttr: 'data-lucide',
     });
   }
 
   private initEventListeners(): void {
-    // Browse buttons
+    // Browse & Dropzone
     const browseBtn = this.appEl.querySelector('#dropzone-browse-btn');
     browseBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
+      this.fileInput.click();
+    });
+
+    const ribbonAddBtn = this.appEl.querySelector('#ribbon-add-files-btn');
+    ribbonAddBtn?.addEventListener('click', () => {
       this.fileInput.click();
     });
 
@@ -265,16 +480,43 @@ class MePdfApp {
     const exportBtn = this.appEl.querySelector('#nav-export-btn');
     exportBtn?.addEventListener('click', () => this.exportCurrentDocument());
 
-    // Navigation tabs
-    const tabBtns = this.appEl.querySelectorAll<HTMLButtonElement>('.nav-tab-btn');
-    tabBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const tab = btn.getAttribute('data-tab');
-        this.handleTabSwitch(tab);
-      });
+    // View Switcher (Cockpit vs Grid)
+    const cockpitViewBtn = this.appEl.querySelector<HTMLButtonElement>('#ribbon-view-cockpit-btn');
+    const gridViewBtn = this.appEl.querySelector<HTMLButtonElement>('#ribbon-view-grid-btn');
+
+    cockpitViewBtn?.addEventListener('click', () => {
+      this.activeViewMode = 'cockpit';
+      cockpitViewBtn.classList.add('active');
+      gridViewBtn?.classList.remove('active');
+      this.updateUI();
     });
 
-    // Language toggle button
+    gridViewBtn?.addEventListener('click', () => {
+      this.activeViewMode = 'grid';
+      gridViewBtn.classList.add('active');
+      cockpitViewBtn?.classList.remove('active');
+      this.updateUI();
+    });
+
+    // Ribbon Zoom controls
+    this.appEl.querySelector('#ribbon-zoom-in')?.addEventListener('click', () => {
+      if (this.cockpitCanvas) {
+        this.cockpitCanvas.setZoom(this.cockpitCanvas.getZoom() + 0.15);
+      }
+    });
+
+    this.appEl.querySelector('#ribbon-zoom-out')?.addEventListener('click', () => {
+      if (this.cockpitCanvas) {
+        this.cockpitCanvas.setZoom(this.cockpitCanvas.getZoom() - 0.15);
+      }
+    });
+
+    // Ribbon Undo button
+    this.appEl.querySelector('#ribbon-undo-btn')?.addEventListener('click', () => {
+      this.undoDelete();
+    });
+
+    // Language toggle
     const langToggleBtn = this.appEl.querySelector('#nav-lang-toggle-btn');
     langToggleBtn?.addEventListener('click', () => {
       const nextLang = getLanguage() === 'th' ? 'en' : 'th';
@@ -282,7 +524,7 @@ class MePdfApp {
       toast.show(t('toastLanguageSwitched'), 'info');
     });
 
-    // Theme toggle button (BMW Neue Klasse Luxury vs Studio Dark)
+    // Theme toggle (BMW Neue Klasse vs Studio Dark)
     const themeBtn = this.appEl.querySelector<HTMLButtonElement>('#nav-theme-toggle-btn');
     const themeLabel = this.appEl.querySelector<HTMLElement>('#nav-theme-label');
 
@@ -298,7 +540,6 @@ class MePdfApp {
       }
     };
 
-    // Initialize theme (default: 'bmw')
     const currentTheme = localStorage.getItem('mepdf_theme') || 'bmw';
     updateThemeUI(currentTheme);
 
@@ -315,7 +556,6 @@ class MePdfApp {
 
     // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
-      // Inhibit all workspace keyboard shortcuts when any modal dialog, progress overlay, or lightbox is active
       if (
         modal.isOpen() ||
         progressOverlay.isOpen() ||
@@ -351,7 +591,7 @@ class MePdfApp {
       }
     });
 
-    // PWA Install Prompt & Network Status Listeners
+    // PWA Install Prompt
     let deferredInstallPrompt: any = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -385,54 +625,6 @@ class MePdfApp {
 
     window.addEventListener('online', () => {
       toast.show(t('toastOnlineActive'), 'info');
-    });
-
-    // Initialize sub-components
-    const accountContainer = this.appEl.querySelector<HTMLElement>('#nav-user-account-container');
-    if (accountContainer) {
-      this.userAccountMenu = new UserAccountMenu(accountContainer, {
-        onOpenCloudLibrary: () => {
-          cloudLibraryModal.open();
-        },
-        onOpenAuthModal: () => {
-          authModal.open();
-        },
-      });
-    }
-
-    cloudLibraryModal.setOptions({
-      onOpenInStudio: async (doc, bytes) => this.loadCloudDocument(doc, bytes),
-      onClose: () => this.resetNavTabToStudio(),
-    });
-
-    const controlsContainer = this.appEl.querySelector<HTMLElement>('#workspace-controls')!;
-    const gridContainer = this.appEl.querySelector<HTMLElement>('#workspace-grid')!;
-
-    this.toolbar = new Toolbar(controlsContainer, {
-      onSelectAll: () => this.toggleSelectAll(),
-      onDeselectAll: () => this.deselectAll(),
-      onInvertSelection: () => this.invertSelection(),
-      onRotateSelected: (deg) => this.rotateSelected(deg),
-      onRotateAll: (deg) => this.rotateAll(deg),
-      onDeleteSelected: () => this.deleteSelected(),
-      onOpenSplit: () => this.openSplitModal(),
-      onAddFiles: () => this.fileInput.click(),
-      onClearAll: () => this.clearAll(),
-      onSaveToCloud: () => this.handleSaveToCloud(),
-    });
-
-    this.toolbar.setAuthenticated(authService.isAuthenticated());
-    authService.onAuthStateChange((user) => {
-      this.toolbar?.setAuthenticated(Boolean(user));
-    });
-
-    this.visualGrid = new VisualGrid(gridContainer, {
-      onToggleSelect: (pageId) => this.togglePageSelect(pageId),
-      onRotatePage: (pageId, deg) => this.rotateSinglePage(pageId, deg),
-      onDeletePage: (pageId) => this.deleteSinglePage(pageId),
-      onReorder: (from, to) => this.reorderPages(from, to),
-      onZoomPage: (pageId) => this.lightboxModal?.open(pageId, this.pages, this.documents),
-      onFilesDropped: (droppedFiles) => this.handleFiles(droppedFiles),
     });
   }
 
@@ -525,25 +717,18 @@ class MePdfApp {
             password: enteredPassword,
           });
 
-          // Render thumbnails for each page
           for (let pNum = 1; pNum <= pageCount; pNum++) {
             progressOverlay.update({
-              stage: `Rendering thumbnails for ${file.name}`,
+              stage: 'Generating thumbnails...',
               current: pNum,
               total: pageCount,
               percent: Math.round((pNum / pageCount) * 100),
             });
 
-            const { dataUrl, width, height } = await renderPageThumbnail(
-              pdfDoc,
-              pNum,
-              0,
-              320,
-              docId
-            );
+            const { dataUrl, width, height } = await renderPageThumbnail(pdfDoc, pNum, 0, 320, docId);
 
             const pageItem: PDFPageItem = {
-              id: `${docId}_p${pNum}`,
+              id: `page_${docId}_${pNum}_${Date.now()}_${Math.random().toString(36).slice(2, 4)}`,
               docId,
               docName: file.name,
               pageIndex: pNum - 1,
@@ -564,9 +749,12 @@ class MePdfApp {
 
       progressOverlay.hide();
       toast.show(t('toastImportSuccess', { count: this.pages.length }), 'success');
+      
+      if (!this.activePageId && this.pages.length > 0) {
+        this.activePageId = this.pages[0]?.id || null;
+      }
       this.updateUI();
 
-      // Trigger any action that was pending file selection
       if (this.pendingAction) {
         const action = this.pendingAction;
         this.pendingAction = null;
@@ -580,7 +768,7 @@ class MePdfApp {
   }
 
   // ==========================================
-  // WORKSPACE ACTIONS
+  // WORKSPACE ACTIONS & SYNCHRONIZATION
   // ==========================================
   private triggerAutoSave(): void {
     if (this.autoSaveTimer) {
@@ -602,30 +790,72 @@ class MePdfApp {
   private updateUI(): void {
     const hasPages = this.pages.length > 0;
     const dropzoneArea = this.appEl.querySelector<HTMLElement>('#dropzone-area')!;
+    const cockpitWorkspace = this.appEl.querySelector<HTMLElement>('#cockpit-workspace')!;
     const controlsContainer = this.appEl.querySelector<HTMLElement>('#workspace-controls')!;
     const gridContainer = this.appEl.querySelector<HTMLElement>('#workspace-grid')!;
     const exportBtn = this.appEl.querySelector<HTMLButtonElement>('#nav-export-btn')!;
     const exportLabel = this.appEl.querySelector<HTMLElement>('#nav-export-label')!;
+    const ribbonDocInfo = this.appEl.querySelector<HTMLElement>('#ribbon-doc-info')!;
+    const ribbonUndoBtn = this.appEl.querySelector<HTMLElement>('#ribbon-undo-btn')!;
+
+    // Undo button visibility
+    if (ribbonUndoBtn) {
+      ribbonUndoBtn.style.display = this.undoStack.length > 0 ? 'inline-flex' : 'none';
+    }
 
     if (hasPages) {
       dropzoneArea.style.display = 'none';
-      controlsContainer.style.display = 'block';
-      gridContainer.style.display = 'block';
       exportBtn.disabled = false;
       exportBtn.style.opacity = '1';
 
       const selectedCount = this.pages.filter((p) => p.selected).length;
       exportLabel.textContent = t('navExportCount', { count: this.pages.length });
-      this.toolbar?.updateState(this.pages.length, selectedCount);
-      this.visualGrid?.setPages(this.pages);
+
+      // Update Ribbon Document Info Badge
+      if (ribbonDocInfo) {
+        ribbonDocInfo.style.display = 'inline-block';
+        const distinctDocNames = Array.from(new Set(this.pages.map((p) => p.docName)));
+        const primaryDoc = distinctDocNames.length === 1 ? distinctDocNames[0] : `${distinctDocNames.length} Documents`;
+        ribbonDocInfo.textContent = `${primaryDoc} • ${this.pages.length}p`;
+      }
+
+      // Check activePageId validity
+      if (!this.activePageId || !this.pages.some((p) => p.id === this.activePageId)) {
+        this.activePageId = this.pages[0]?.id || null;
+      }
+
+      // Switch View Mode
+      if (this.activeViewMode === 'cockpit') {
+        cockpitWorkspace.style.display = 'grid';
+        controlsContainer.style.display = 'none';
+        gridContainer.style.display = 'none';
+
+        this.cockpitFilmstrip?.setPages(this.pages, this.activePageId || undefined);
+        this.syncCockpitCanvas();
+        this.cockpitInspector?.setState({ selectedCount, totalPages: this.pages.length });
+      } else {
+        cockpitWorkspace.style.display = 'none';
+        controlsContainer.style.display = 'block';
+        gridContainer.style.display = 'block';
+
+        this.toolbar?.updateState(this.pages.length, selectedCount);
+        this.visualGrid?.setPages(this.pages);
+      }
     } else {
       dropzoneArea.style.display = 'flex';
+      cockpitWorkspace.style.display = 'none';
       controlsContainer.style.display = 'none';
       gridContainer.style.display = 'none';
+      if (ribbonDocInfo) ribbonDocInfo.style.display = 'none';
+
       exportBtn.disabled = true;
       exportBtn.style.opacity = '0.5';
       exportLabel.textContent = t('navExport');
+
+      this.activePageId = null;
       this.visualGrid?.setPages([]);
+      this.cockpitFilmstrip?.setPages([]);
+      this.cockpitCanvas?.setActivePage(null, 0, 0);
     }
 
     this.triggerAutoSave();
@@ -664,7 +894,11 @@ class MePdfApp {
   private rotateSelected(degrees: number): void {
     const selectedPages = this.pages.filter((p) => p.selected);
     if (selectedPages.length === 0) {
-      this.rotateAll(degrees);
+      if (this.activePageId) {
+        this.rotateSinglePage(this.activePageId, degrees);
+      } else {
+        this.rotateAll(degrees);
+      }
       return;
     }
 
@@ -709,7 +943,6 @@ class MePdfApp {
     const deletedPage = this.pages[idx]!;
     const docMeta = this.documents.get(deletedPage.docId);
 
-    // Dismiss previous undo toast if active
     if (this.activeUndoToast) {
       this.activeUndoToast.dismiss();
       this.activeUndoToast = null;
@@ -725,8 +958,14 @@ class MePdfApp {
 
     this.pages.splice(idx, 1);
     this.pruneUnusedDocuments();
-    this.updateUI();
 
+    // Reset activePageId if deleted
+    if (this.activePageId === pageId) {
+      const nextItem = this.pages[Math.min(idx, this.pages.length - 1)];
+      this.activePageId = nextItem ? nextItem.id : null;
+    }
+
+    this.updateUI();
     this.activeUndoToast = toast.showAction(t('toastPageRemoved'), t('toastUndo'), () => this.undoDelete());
   }
 
@@ -739,14 +978,18 @@ class MePdfApp {
       });
 
     const selectedCount = selectedPagesWithIndices.length;
-    if (selectedCount === 0) return;
+    if (selectedCount === 0) {
+      if (this.activePageId) {
+        this.deleteSinglePage(this.activePageId);
+      }
+      return;
+    }
 
     const docIds = new Set(selectedPagesWithIndices.map((item) => item.page.docId));
     const docsToKeep = Array.from(docIds)
       .map((id) => this.documents.get(id))
       .filter((d): d is DocumentMetadata => Boolean(d));
 
-    // Dismiss previous undo toast if active
     if (this.activeUndoToast) {
       this.activeUndoToast.dismiss();
       this.activeUndoToast = null;
@@ -754,49 +997,50 @@ class MePdfApp {
 
     this.undoStack.push({
       pages: selectedPagesWithIndices,
-      documents: docsToKeep,
+      documents: docsToKeep.map((d) => ({ ...d })),
     });
     if (this.undoStack.length > 20) {
       this.undoStack.shift();
     }
 
-    this.pages = this.pages.filter((p) => !p.selected);
+    const selectedIds = new Set(selectedPagesWithIndices.map((item) => item.page.id));
+    this.pages = this.pages.filter((p) => !selectedIds.has(p.id));
     this.pruneUnusedDocuments();
-    this.updateUI();
 
+    if (this.activePageId && selectedIds.has(this.activePageId)) {
+      this.activePageId = this.pages.length > 0 ? (this.pages[0]?.id || null) : null;
+    }
+
+    this.updateUI();
     this.activeUndoToast = toast.showAction(
-      t('toastPagesRemoved', { count: selectedCount }),
+      `${selectedCount} pages removed`,
       t('toastUndo'),
       () => this.undoDelete()
     );
   }
 
   private undoDelete(): void {
+    const lastAction = this.undoStack.pop();
+    if (!lastAction) return;
+
     if (this.activeUndoToast) {
       this.activeUndoToast.dismiss();
       this.activeUndoToast = null;
     }
 
-    const state = this.undoStack.pop();
-    if (!state || state.pages.length === 0) return;
-
-    const { pages, documents } = state;
-
-    // Restore document metadata if pruned
-    for (const doc of documents) {
+    for (const doc of lastAction.documents) {
       if (!this.documents.has(doc.id)) {
         this.documents.set(doc.id, doc);
       }
     }
 
-    // Restore pages at their indices, sorted ascending
-    const sorted = [...pages].sort((a, b) => a.index - b.index);
-    for (const { page, index } of sorted) {
-      const insertAt = Math.min(Math.max(0, index), this.pages.length);
-      this.pages.splice(insertAt, 0, page);
+    const sortedPages = [...lastAction.pages].sort((a, b) => a.index - b.index);
+    for (const item of sortedPages) {
+      const insertIdx = Math.min(item.index, this.pages.length);
+      this.pages.splice(insertIdx, 0, item.page);
     }
 
-    const count = sorted.length;
+    const count = sortedPages.length;
     this.updateUI();
     toast.show(t('toastPagesRestored', { count }), 'success');
   }
@@ -823,6 +1067,7 @@ class MePdfApp {
         this.pages = [];
         this.documents.clear();
         this.undoStack = [];
+        this.activePageId = null;
         clearThumbnailCache();
         await clearWorkspaceState();
         this.updateUI();
@@ -906,8 +1151,7 @@ class MePdfApp {
         type: 'application/pdf',
       });
       await this.handleFiles([virtualFile]);
-      this.setActiveNavTab('studio');
-      setHashRoute('studio');
+      this.resetNavTabToStudio();
       toast.show(`Loaded "${doc.filename}" from cloud library`, 'success');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -937,6 +1181,205 @@ class MePdfApp {
   }
 
   // ==========================================
+  // COCKPIT DIRECT TOOL HANDLERS
+  // ==========================================
+  private async handleApplyWatermark(options: {
+    text: string;
+    fontSize: number;
+    opacity: number;
+    color: string;
+    rotation: number;
+    repeat: boolean;
+  }): Promise<void> {
+    try {
+      progressOverlay.show('Applying watermark to PDF...');
+      const { docBytes, docName } = await this.getActiveDocumentBytes();
+      
+      const watermarkedBytes = await pdfWorker.watermarkPdf(
+        docBytes,
+        {
+          type: 'text',
+          text: options.text,
+          fontSize: options.fontSize,
+          opacity: options.opacity,
+          color: hexToRgb(options.color),
+          rotation: options.rotation,
+          position: 'center',
+        },
+        (info) => progressOverlay.update(info)
+      );
+
+      progressOverlay.hide();
+      const outName = `${docName.replace(/\.pdf$/i, '')}_watermarked.pdf`;
+      downloadBytes(watermarkedBytes, outName);
+      toast.show('Watermark applied successfully!', 'success');
+    } catch (err: unknown) {
+      progressOverlay.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Failed to apply watermark: ${msg}`, 'error');
+    }
+  }
+
+  private async handleApplyPageNumbers(options: {
+    format: string;
+    position: 'bottom-center' | 'bottom-right' | 'bottom-left' | 'top-center' | 'top-right' | 'top-left';
+    margin: number;
+    fontSize: number;
+    color: string;
+  }): Promise<void> {
+    try {
+      progressOverlay.show('Adding page numbers...');
+      const { docBytes, docName } = await this.getActiveDocumentBytes();
+
+      let pnFormat: import('./core/types').PageNumberFormat = 'custom';
+      if (options.format === '{n}') pnFormat = 'number_only';
+      else if (options.format === 'Page {n}') pnFormat = 'page_n';
+      else if (options.format === 'Page {n} of {total}') pnFormat = 'page_n_of_total';
+      else if (options.format.includes('{total}')) pnFormat = 'n_slash_total';
+
+      const numberedBytes = await pdfWorker.pageNumbers(
+        docBytes,
+        {
+          position: options.position,
+          format: pnFormat,
+          customTemplate: pnFormat === 'custom' ? options.format : undefined,
+          fontSize: options.fontSize,
+          margin: options.margin,
+          color: hexToRgb(options.color),
+          startPageNumber: 1,
+        },
+        (info) => progressOverlay.update(info)
+      );
+
+      progressOverlay.hide();
+      const outName = `${docName.replace(/\.pdf$/i, '')}_numbered.pdf`;
+      downloadBytes(numberedBytes, outName);
+      toast.show('Page numbers added successfully!', 'success');
+    } catch (err: unknown) {
+      progressOverlay.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Failed to add page numbers: ${msg}`, 'error');
+    }
+  }
+
+  private async handleApplyCompress(options: {
+    engine: 'lossless' | 'scanned';
+    quality: number;
+    dpi: number;
+  }): Promise<void> {
+    try {
+      progressOverlay.show('Compressing PDF...');
+      const { docBytes, docName } = await this.getActiveDocumentBytes();
+
+      let compressedBytes: Uint8Array;
+      if (options.engine === 'lossless') {
+        const res = await pdfWorker.compressLossless(docBytes, (info) => progressOverlay.update(info));
+        compressedBytes = res.pdfBytes;
+      } else {
+        const res = await compressPdf(
+          docBytes,
+          {
+            quality: options.quality / 100,
+            dpi: options.dpi,
+          },
+          (info) => progressOverlay.update(info)
+        );
+        compressedBytes = res.pdfBytes;
+      }
+
+      progressOverlay.hide();
+      const outName = `${docName.replace(/\.pdf$/i, '')}_compressed.pdf`;
+      downloadBytes(compressedBytes, outName);
+      toast.show('Document compressed successfully!', 'success');
+    } catch (err: unknown) {
+      progressOverlay.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Compression failed: ${msg}`, 'error');
+    }
+  }
+
+  private async handleApplyProtect(password: string): Promise<void> {
+    try {
+      progressOverlay.show('Encrypting PDF with 256-bit AES...');
+      const { docBytes, docName } = await this.getActiveDocumentBytes();
+
+      const protectedBytes = await pdfWorker.protectPdf(
+        docBytes,
+        password
+      );
+
+      progressOverlay.hide();
+      const outName = `${docName.replace(/\.pdf$/i, '')}_protected.pdf`;
+      downloadBytes(protectedBytes, outName);
+      toast.show('PDF encrypted and protected!', 'success');
+    } catch (err: unknown) {
+      progressOverlay.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Encryption failed: ${msg}`, 'error');
+    }
+  }
+
+  private async handleApplyMetadata(meta: {
+    title: string;
+    author: string;
+    subject: string;
+    keywords: string;
+  }): Promise<void> {
+    try {
+      progressOverlay.show('Updating document metadata...');
+      const { docBytes, docName } = await this.getActiveDocumentBytes();
+
+      const updatedBytes = await pdfWorker.updatePdfMetadata(
+        docBytes,
+        {
+          title: meta.title || undefined,
+          author: meta.author || undefined,
+          subject: meta.subject || undefined,
+          keywords: meta.keywords || undefined,
+        }
+      );
+
+      progressOverlay.hide();
+      const outName = `${docName.replace(/\.pdf$/i, '')}_meta.pdf`;
+      downloadBytes(updatedBytes, outName);
+      toast.show('Metadata updated successfully!', 'success');
+    } catch (err: unknown) {
+      progressOverlay.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Metadata update failed: ${msg}`, 'error');
+    }
+  }
+
+  private async handleSanitizeMetadata(): Promise<void> {
+    try {
+      progressOverlay.show('Sanitizing and purging metadata...');
+      const { docBytes, docName } = await this.getActiveDocumentBytes();
+
+      const sanitizedBytes = await pdfWorker.updatePdfMetadata(
+        docBytes,
+        {
+          title: '',
+          author: '',
+          subject: '',
+          keywords: '',
+          creator: '',
+          producer: 'mePDF Studio Pure Client-Side',
+        },
+        true
+      );
+
+      progressOverlay.hide();
+      const outName = `${docName.replace(/\.pdf$/i, '')}_sanitized.pdf`;
+      downloadBytes(sanitizedBytes, outName);
+      toast.show('All metadata completely sanitized!', 'success');
+    } catch (err: unknown) {
+      progressOverlay.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Sanitization failed: ${msg}`, 'error');
+    }
+  }
+
+  // ==========================================
   // ACTIVE DOCUMENT RESOLVER
   // ==========================================
   private async getActiveDocumentBytes(): Promise<{ docBytes: Uint8Array; docName: string; password?: string }> {
@@ -955,7 +1398,6 @@ class MePdfApp {
       return { docBytes: firstDoc.fileBytes, docName: firstDoc.filename, password: firstDoc.password };
     }
 
-    // Generate exact merged document representing current workspace state
     progressOverlay.show('Preparing workspace document...');
     const mergedBytes = await pdfWorker.mergePages(this.pages, this.documents, (info) => {
       progressOverlay.update(info);
@@ -969,24 +1411,17 @@ class MePdfApp {
   // ==========================================
   // TOP NAV TAB ACTIONS & ROUTING
   // ==========================================
-  private setActiveNavTab(tabName: string): void {
-    const tabBtns = this.appEl.querySelectorAll<HTMLButtonElement>('.nav-tab-btn');
-    tabBtns.forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
-    });
-  }
-
   private resetNavTabToStudio(): void {
-    this.setActiveNavTab('studio');
     setHashRoute('studio');
+    this.cockpitInspector?.setActiveTab('tools');
   }
 
   private async handleTabSwitch(tab: string | null): Promise<void> {
     if (!tab) return;
 
     if (tab === 'studio') {
-      this.setActiveNavTab('studio');
       setHashRoute('studio');
+      this.cockpitInspector?.setActiveTab('tools');
       return;
     }
 
@@ -1013,14 +1448,12 @@ class MePdfApp {
         this.fileInput.click();
         return;
       }
-      this.setActiveNavTab('split');
       setHashRoute('split');
       this.openSplitModal();
       return;
     }
 
     if (tab === 'img2pdf') {
-      this.setActiveNavTab('img2pdf');
       setHashRoute('img2pdf');
       modal.setOnClose(() => this.resetNavTabToStudio());
       modal.showImagesToPdfModal(async (imageFiles, pageSize) => {
@@ -1031,12 +1464,27 @@ class MePdfApp {
           type: 'application/pdf',
         });
         await this.handleFiles([virtualFile]);
-        toast.show(`Added ${imageFiles.length} images to Visual Studio!`, 'success');
+        toast.show(`Added ${imageFiles.length} images to Studio Cockpit!`, 'success');
       });
       return;
     }
 
-    // For tools requiring an existing document or file
+    // Direct routing to Cockpit Inspector tabs
+    if (['watermark', 'numbers', 'compress', 'protect', 'metadata'].includes(tab)) {
+      if (this.pages.length === 0) {
+        this.pendingAction = tab;
+        toast.show(t('toastSelectDocFirst'), 'info');
+        this.fileInput.click();
+        return;
+      }
+      setHashRoute(tab as ToolRoute);
+      this.activeViewMode = 'cockpit';
+      this.cockpitInspector?.setActiveTab(tab as InspectorTab);
+      this.updateUI();
+      return;
+    }
+
+    // Legacy or Dialog-based tools
     if (this.pages.length === 0) {
       this.pendingAction = tab;
       toast.show(t('toastSelectDocFirst'), 'info');
@@ -1046,21 +1494,10 @@ class MePdfApp {
 
     try {
       const { docBytes, docName, password } = await this.getActiveDocumentBytes();
-      this.setActiveNavTab(tab);
       setHashRoute(tab as ToolRoute);
       modal.setOnClose(() => this.resetNavTabToStudio());
 
-      if (tab === 'compress') {
-        modal.showCompressModal(docBytes, docName, password);
-      } else if (tab === 'protect') {
-        modal.showProtectModal(docBytes, docName);
-      } else if (tab === 'watermark') {
-        modal.showWatermarkModal(docBytes, docName);
-      } else if (tab === 'page-numbers') {
-        modal.showPageNumberModal(docBytes, docName);
-      } else if (tab === 'metadata') {
-        await modal.showMetadataModal(docBytes, docName);
-      } else if (tab === 'pdf2img') {
+      if (tab === 'pdf2img') {
         modal.showPdfToImagesModal(docBytes, docName, password);
       } else if (tab === 'extract-text') {
         await modal.showExtractTextModal(docBytes, docName, password);
@@ -1085,7 +1522,6 @@ class MePdfApp {
       await this.handleTabSwitch(route);
     });
 
-    // Restore session from IndexedDB if available
     try {
       const restored = await loadWorkspaceState();
       if (restored && restored.pages.length > 0) {
@@ -1094,6 +1530,9 @@ class MePdfApp {
           this.documents.set(doc.id, doc);
         }
         this.pages = restored.pages;
+        if (this.pages.length > 0) {
+          this.activePageId = this.pages[0]?.id || null;
+        }
         this.updateUI();
         toast.show(t('toastSessionRestored'), 'info');
       }
@@ -1101,7 +1540,6 @@ class MePdfApp {
       console.warn('Failed to restore workspace session:', err);
     }
 
-    // Handle initial route on landing
     const initialRoute = getCurrentRoute();
     if (initialRoute && initialRoute !== 'studio') {
       await this.handleTabSwitch(initialRoute);
@@ -1111,32 +1549,18 @@ class MePdfApp {
   private handleLanguageChanged(): void {
     const lang = getLanguage();
 
-    // Update Brand badge
     const badge = this.appEl.querySelector('#brand-badge-el');
-    if (badge) badge.textContent = t('brandBadge');
+    if (badge) badge.textContent = 'STUDIO COCKPIT';
 
-    // Update Navbar tab labels
-    const tabMap: Record<string, string> = {
-      studio: t('tabStudio'),
-      split: t('tabSplit'),
-      compress: t('tabCompress'),
-      protect: t('tabProtect'),
-      watermark: t('tabWatermark'),
-      'page-numbers': t('tabNumbering'),
-      metadata: t('tabMetadata'),
-      img2pdf: t('tabImg2Pdf'),
-      pdf2img: t('tabPdf2Img'),
-      'extract-text': t('tabExtractText'),
-    };
-    this.appEl.querySelectorAll<HTMLButtonElement>('.nav-tab-btn').forEach((btn) => {
-      const tab = btn.getAttribute('data-tab');
-      const span = btn.querySelector('span');
-      if (tab && span && tabMap[tab]) {
-        span.textContent = tabMap[tab];
-      }
-    });
+    const viewCockpitLabel = this.appEl.querySelector('#ribbon-label-cockpit');
+    if (viewCockpitLabel) viewCockpitLabel.textContent = t('viewCockpit') || 'Cockpit';
 
-    // Update language toggle indicators
+    const viewGridLabel = this.appEl.querySelector('#ribbon-label-grid');
+    if (viewGridLabel) viewGridLabel.textContent = t('viewGrid') || 'Grid';
+
+    const addFilesLabel = this.appEl.querySelector('#ribbon-add-files-label');
+    if (addFilesLabel) addFilesLabel.textContent = t('toolbarAddFiles') || 'Add';
+
     const thOpt = this.appEl.querySelector('#nav-lang-toggle-btn .lang-opt:first-of-type');
     const enOpt = this.appEl.querySelector('#nav-lang-toggle-btn .lang-opt:last-of-type');
     if (thOpt && enOpt) {
@@ -1144,7 +1568,6 @@ class MePdfApp {
       enOpt.classList.toggle('active', lang === 'en');
     }
 
-    // Update Install and Export buttons
     const installBtn = this.appEl.querySelector('#nav-install-btn');
     if (installBtn) {
       installBtn.setAttribute('title', t('navInstall'));
@@ -1159,7 +1582,6 @@ class MePdfApp {
           : t('navExport');
     }
 
-    // Update Dropzone texts
     const dropzoneTitle = this.appEl.querySelector('#dropzone-title-el');
     if (dropzoneTitle) dropzoneTitle.textContent = t('dropzoneTitle');
 
@@ -1178,7 +1600,9 @@ class MePdfApp {
     const dropzoneFormats = this.appEl.querySelector('#dropzone-formats-label');
     if (dropzoneFormats) dropzoneFormats.textContent = t('dropzoneSupportedFormats');
 
-    // Re-render Toolbar, VisualGrid, and UserAccountMenu
+    this.cockpitFilmstrip?.render();
+    this.cockpitCanvas?.render();
+    this.cockpitInspector?.render();
     this.toolbar?.render();
     this.toolbar?.setAuthenticated(authService.isAuthenticated());
     this.visualGrid?.setPages(this.pages);
@@ -1186,12 +1610,10 @@ class MePdfApp {
   }
 }
 
-// Initialize application on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   new MePdfApp();
 });
 
-// Register PWA Service Worker for 100% offline access
 if ('serviceWorker' in navigator) {
   registerSW({
     immediate: true,

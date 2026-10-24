@@ -2199,3 +2199,964 @@ textarea:focus-visible,
   box-shadow: 0 0 10px rgba(28, 105, 212, 0.25);
 }
 
+
+/* ========================================================
+   3-PANE STUDIO COCKPIT LAYOUT (BMW NEUE KLASSE LUXURY)
+   - Top Command Ribbon: Floating obsidian glass
+   - Left Filmstrip Rail: 260px vertical page tray with drag & drop
+   - Center Live Canvas Stage: High-DPI interactive viewer + real-time overlays
+   - Right Property Inspector: 340px docked tool control center
+   ======================================================== */
+
+/* Top Command Ribbon */
+.command-ribbon {
+  height: 56px;
+  background-color: var(--bg-app);
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.03), transparent);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+[data-theme="bmw"] .command-ribbon {
+  background: rgba(8, 9, 11, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.ribbon-brand-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 260px;
+}
+
+.ribbon-logo {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, #ffffff 40%, var(--primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  user-select: none;
+}
+
+.ribbon-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: rgba(28, 105, 212, 0.12);
+  border: 1px solid rgba(28, 105, 212, 0.3);
+  color: var(--primary);
+}
+
+.ribbon-doc-info {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--surface-raised);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.ribbon-center-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ribbon-pill-group {
+  display: flex;
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+}
+
+[data-theme="bmw"] .ribbon-pill-group {
+  background: #0f1116;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.ribbon-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.ribbon-pill-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ribbon-pill-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.ribbon-zoom-group {
+  display: flex;
+  align-items: center;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 2px;
+}
+
+.ribbon-zoom-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.25rem 0.45rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ribbon-zoom-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ribbon-zoom-val {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0 0.35rem;
+  color: var(--text-primary);
+  min-width: 42px;
+  text-align: center;
+}
+
+.ribbon-right-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 3-Pane Cockpit Container */
+.cockpit-workspace {
+  display: grid;
+  grid-template-columns: 260px 1fr 340px;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+  background-color: var(--bg-app);
+}
+
+.cockpit-workspace.inspector-collapsed {
+  grid-template-columns: 260px 1fr 48px;
+}
+
+/* Left Filmstrip Rail */
+.cockpit-filmstrip {
+  background: var(--surface-base);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+[data-theme="bmw"] .cockpit-filmstrip {
+  background: rgba(15, 17, 22, 0.85);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cockpit-filmstrip-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.filmstrip-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-raised);
+}
+
+[data-theme="bmw"] .filmstrip-header {
+  background: #151821;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.filmstrip-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filmstrip-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.filmstrip-counter {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background: var(--surface-overlay);
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.filmstrip-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.filmstrip-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.filmstrip-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.45rem;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--duration-fast) var(--ease-spring);
+  user-select: none;
+}
+
+.filmstrip-card:hover {
+  background: var(--surface-overlay);
+  border-color: var(--border-medium);
+}
+
+.filmstrip-card.active {
+  border-color: var(--primary);
+  background: rgba(28, 105, 212, 0.08);
+  box-shadow: 0 0 0 1px var(--primary), 0 4px 16px var(--primary-glow);
+}
+
+.filmstrip-card.selected {
+  border-color: var(--primary);
+}
+
+.filmstrip-card.dragging {
+  opacity: 0.4;
+  transform: scale(0.96);
+}
+
+.filmstrip-card.drag-over-top {
+  border-top: 2px solid var(--primary);
+}
+
+.filmstrip-card.drag-over-bottom {
+  border-bottom: 2px solid var(--primary);
+}
+
+.filmstrip-card-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 22px;
+}
+
+.filmstrip-page-num {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.filmstrip-drag-handle {
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0.5;
+  transition: opacity var(--duration-fast);
+}
+
+.filmstrip-drag-handle:hover {
+  opacity: 1;
+}
+
+.filmstrip-thumb-wrap {
+  width: 72px;
+  height: 96px;
+  background: #000000;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.filmstrip-thumb-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform var(--duration-fast);
+}
+
+.filmstrip-rotation-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.filmstrip-hover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-left: auto;
+  opacity: 0.8;
+  transition: opacity var(--duration-fast);
+}
+
+.filmstrip-card:hover .filmstrip-hover-actions {
+  opacity: 1;
+}
+
+.filmstrip-action-btn {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+}
+
+.filmstrip-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-active);
+  border-color: var(--border-medium);
+}
+
+.filmstrip-action-btn.btn-delete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* Center Live Canvas Stage */
+.cockpit-canvas {
+  background: var(--bg-oled);
+  background-image: 
+    radial-gradient(ellipse at 50% 20%, rgba(28, 105, 212, 0.12) 0%, transparent 65%),
+    radial-gradient(circle at 80% 80%, rgba(0, 181, 226, 0.08) 0%, transparent 45%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  position: relative;
+}
+
+.cockpit-canvas-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.canvas-telemetry-header {
+  height: 44px;
+  background: rgba(15, 17, 22, 0.7);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  backdrop-filter: blur(12px);
+  z-index: 10;
+}
+
+[data-theme="bmw"] .canvas-telemetry-header {
+  background: rgba(15, 18, 24, 0.75);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.telemetry-left, .telemetry-center, .telemetry-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.telemetry-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.telemetry-page {
+  font-weight: 700;
+  color: var(--primary);
+  border-color: rgba(28, 105, 212, 0.3);
+  background: rgba(28, 105, 212, 0.1);
+}
+
+.telemetry-doc {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.telemetry-btn {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: all var(--duration-fast);
+}
+
+.telemetry-btn:hover:not(:disabled) {
+  background: var(--surface-overlay);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
+.telemetry-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.telemetry-separator {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  margin: 0 0.25rem;
+}
+
+.telemetry-page-indicator {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 48px;
+  text-align: center;
+}
+
+.telemetry-zoom-val {
+  min-width: 44px;
+  text-align: center;
+}
+
+.canvas-viewport {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem;
+  position: relative;
+}
+
+.canvas-sheet-wrapper {
+  transition: transform 120ms ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas-document-sheet {
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.7),
+    0 1px 3px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.15);
+  position: relative;
+  overflow: hidden;
+  max-width: 800px;
+  max-height: calc(100vh - 160px);
+  width: 520px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas-page-render {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Real-time Overlays */
+.canvas-overlay-watermark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 5;
+}
+
+.canvas-overlay-watermark.watermark-center-single {
+  display: flex;
+}
+
+.wm-single-item {
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.canvas-overlay-watermark.watermark-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.wm-tile-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.canvas-overlay-numbers {
+  position: absolute;
+  pointer-events: none;
+  display: none;
+  font-family: 'Inter', monospace;
+  font-weight: 600;
+  z-index: 6;
+}
+
+.canvas-overlay-numbers.pos-bottom-center {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.canvas-overlay-numbers.pos-bottom-right {
+  bottom: 0;
+  right: 0;
+}
+
+.canvas-overlay-numbers.pos-bottom-left {
+  bottom: 0;
+  left: 0;
+}
+
+.canvas-overlay-numbers.pos-top-center {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.canvas-overlay-numbers.pos-top-right {
+  top: 0;
+  right: 0;
+}
+
+.canvas-overlay-numbers.pos-top-left {
+  top: 0;
+  left: 0;
+}
+
+/* Right Property Inspector */
+.cockpit-inspector {
+  background: var(--surface-base);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  position: relative;
+}
+
+[data-theme="bmw"] .cockpit-inspector {
+  background: rgba(15, 17, 22, 0.88);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cockpit-inspector-collapsed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0.25rem;
+  height: 100%;
+  background: var(--surface-raised);
+}
+
+.cockpit-inspector-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.inspector-header {
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+}
+
+[data-theme="bmw"] .inspector-header {
+  background: #151821;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.inspector-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+}
+
+.inspector-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.inspector-tabs-nav {
+  display: flex;
+  overflow-x: auto;
+  padding: 0 0.5rem 0.4rem;
+  gap: 0.25rem;
+  scrollbar-width: none;
+}
+
+.inspector-tabs-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.inspector-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast);
+}
+
+.inspector-nav-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.inspector-nav-btn.active {
+  background: rgba(28, 105, 212, 0.15);
+  border-color: rgba(28, 105, 212, 0.4);
+  color: var(--primary);
+}
+
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.inspector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.inspector-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inspector-section-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.live-pill {
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-full);
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: var(--success);
+}
+
+.inspector-help-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: -0.35rem;
+}
+
+.inspector-btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.inspector-btn-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inspector-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0.5rem 0;
+}
+
+.val-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(28, 105, 212, 0.12);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(28, 105, 212, 0.25);
+}
+
+.slider-presets-row {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.chip-preset {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.chip-preset:hover {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+}
+
+.chip-preset.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.color-presets-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  transition: transform var(--duration-fast);
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  border-color: #ffffff;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.position-matrix {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+
+.pos-cell {
+  padding: 0.35rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--duration-fast);
+}
+
+.pos-cell:hover {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+}
+
+.pos-cell.active {
+  background: rgba(28, 105, 212, 0.2);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.engine-toggle-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.engine-card {
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.engine-card:hover {
+  background: var(--surface-overlay);
+  border-color: var(--border-medium);
+}
+
+.engine-card.active {
+  background: rgba(28, 105, 212, 0.08);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.engine-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.engine-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.engine-badge {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: var(--success);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-full);
+}
+
+.engine-desc {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .cockpit-workspace {
+    grid-template-columns: 200px 1fr 300px;
+  }
+}
+
+@media (max-width: 800px) {
+  .cockpit-workspace {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .cockpit-filmstrip {
+    height: 220px;
+  }
+  .cockpit-inspector {
+    height: 400px;
+  }
+}

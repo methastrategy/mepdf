@@ -21,6 +21,12 @@ export const translations = {
     navExport: 'Export PDF',
     navExportCount: 'Export PDF ({count})',
 
+    // Cockpit View
+    cockpitFilmstripTitle: 'PAGES',
+    cockpitCanvasPage: 'Page {current} of {total}',
+    viewCockpit: 'Cockpit',
+    viewGrid: 'Grid',
+
     // Dropzone
     dropzoneTitle: 'Drop PDF or Image files here',
     dropzoneDesc:
@@ -348,6 +354,12 @@ export const translations = {
     navInstall: 'ติดตั้งแอป',
     navExport: 'ส่งออก PDF',
     navExportCount: 'ส่งออก PDF ({count})',
+
+    // Cockpit View
+    cockpitFilmstripTitle: 'หน้าเอกสาร',
+    cockpitCanvasPage: 'หน้า {current} จาก {total}',
+    viewCockpit: 'ค็อกพิต',
+    viewGrid: 'กริด',
 
     // Dropzone
     dropzoneTitle: 'ลากไฟล์ PDF หรือรูปภาพมาวางที่นี่',
