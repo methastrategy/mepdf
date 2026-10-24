@@ -280,7 +280,7 @@ describe('BMW Neue Klasse 3-Pane Studio Cockpit Architecture', () => {
       // Watermark preview updates
       canvas.setWatermarkPreview({
         enabled: true,
-        text: 'BMW LUXURY COCKPIT',
+        text: 'STUDIO LUXURY COCKPIT',
         fontSize: 48,
         opacity: 0.3,
         color: '#1c69d4',
