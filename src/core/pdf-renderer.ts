@@ -5,8 +5,76 @@ import type { ProgressCallback } from './types';
 // Initialize PDF.js worker URL
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-// Thumbnail cache to avoid re-rendering unchanged pages
-const thumbnailCache = new Map<string, string>();
+/**
+ * High-performance LRU Cache for rendered PDF thumbnails.
+ * Enforces a strict memory ceiling (default 120 pages) to prevent tab OOM crashes on mobile/iOS.
+ */
+export class LruThumbnailCache {
+  private cache = new Map<string, string>();
+  private readonly maxEntries: number;
+
+  constructor(maxEntries = 120) {
+    this.maxEntries = Math.max(1, maxEntries);
+  }
+
+  get(key: string): string | undefined {
+    const val = this.cache.get(key);
+    if (val !== undefined) {
+      // Re-insert to mark as recently used
+      this.cache.delete(key);
+      this.cache.set(key, val);
+    }
+    return val;
+  }
+
+  has(key: string): boolean {
+    return this.cache.has(key);
+  }
+
+  set(key: string, value: string): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxEntries) {
+      // Evict oldest entry (first item in Map)
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
+    }
+    this.cache.set(key, value);
+  }
+
+  delete(key: string): boolean {
+    return this.cache.delete(key);
+  }
+
+  deletePrefix(prefix: string): void {
+    for (const key of Array.from(this.cache.keys())) {
+      if (key.startsWith(prefix) || key === prefix) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+
+  get capacity(): number {
+    return this.maxEntries;
+  }
+
+  keys(): IterableIterator<string> {
+    return this.cache.keys();
+  }
+}
+
+// Global LRU thumbnail cache instance with 120 entries ceiling
+export const thumbnailCache = new LruThumbnailCache(120);
 
 /**
  * Loads a PDF document from raw byte array, optionally with a password
@@ -208,12 +276,8 @@ export function clearThumbnailCache(): void {
  * Prunes thumbnail cache for a specific document ID
  */
 export function removeDocThumbnails(docId: string): void {
-  const prefix = `${docId}-`;
-  for (const key of thumbnailCache.keys()) {
-    if (key.startsWith(prefix) || key === docId) {
-      thumbnailCache.delete(key);
-    }
-  }
+  thumbnailCache.deletePrefix(`${docId}-`);
+  thumbnailCache.delete(docId);
 }
 
 /**

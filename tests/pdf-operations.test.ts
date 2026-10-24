@@ -8,6 +8,7 @@ import {
   getThumbnailCacheSize,
   setCachedThumbnail,
   destroyPdfDocument,
+  LruThumbnailCache,
 } from '../src/core/pdf-renderer';
 import type { PDFPageItem, DocumentMetadata, CompressionResult } from '../src/core/types';
 
@@ -225,6 +226,25 @@ describe('Thumbnail cache pruning and memory release', () => {
 
     clearThumbnailCache();
     expect(getThumbnailCacheSize()).toBe(0);
+  });
+
+  it('evicts least recently used items when capacity is reached in LruThumbnailCache', () => {
+    const lru = new LruThumbnailCache(3);
+    lru.set('page1', 'data:1');
+    lru.set('page2', 'data:2');
+    lru.set('page3', 'data:3');
+    expect(lru.size).toBe(3);
+
+    // Access page1, so page2 becomes the oldest
+    expect(lru.get('page1')).toBe('data:1');
+
+    // Add page4 -> should evict page2
+    lru.set('page4', 'data:4');
+    expect(lru.size).toBe(3);
+    expect(lru.has('page2')).toBe(false);
+    expect(lru.has('page1')).toBe(true);
+    expect(lru.has('page3')).toBe(true);
+    expect(lru.has('page4')).toBe(true);
   });
 
   it('safely handles destroyPdfDocument', async () => {

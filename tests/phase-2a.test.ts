@@ -143,6 +143,41 @@ describe('Phase 2A - Workspace Storage (IndexedDB / Memory Fallback)', () => {
     const loadedAfterClear = await loadWorkspaceState();
     expect(loadedAfterClear).toBeNull();
   });
+
+  it('prunes unused documents in decoupled storage when pages are removed', async () => {
+    const dummyDoc2: DocumentMetadata = {
+      id: 'doc_test_2',
+      filename: 'second.pdf',
+      size: 2048,
+      pageCount: 1,
+      fileBytes: new Uint8Array([37, 80, 68, 70, 45, 50]),
+    };
+    const page2: PDFPageItem = {
+      id: 'doc_test_2_p1',
+      docId: 'doc_test_2',
+      docName: 'second.pdf',
+      pageIndex: 0,
+      displayPageNumber: 1,
+      rotation: 0,
+      thumbnailDataUrl: 'data:image/png;base64,xyz',
+      width: 595,
+      height: 842,
+      selected: false,
+    };
+
+    // Save with 2 docs and 3 pages
+    await saveWorkspaceState([dummyDoc, dummyDoc2], [...dummyPages, page2]);
+    let loaded = await loadWorkspaceState();
+    expect(loaded?.documents).toHaveLength(2);
+    expect(loaded?.pages).toHaveLength(3);
+
+    // Remove pages from doc_test_2, keeping only dummyPages
+    await saveWorkspaceState([dummyDoc], dummyPages);
+    loaded = await loadWorkspaceState();
+    expect(loaded?.documents).toHaveLength(1);
+    expect(loaded?.documents[0]?.id).toBe('doc_test_1');
+    expect(loaded?.pages).toHaveLength(2);
+  });
 });
 
 describe('Phase 2A - URL Hash Tool Router', () => {

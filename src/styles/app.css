@@ -6,12 +6,17 @@
   padding: 0;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-oled);
   color: var(--text-primary);
   min-height: 100vh;
   line-height: var(--lh-prose);
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -19,6 +24,7 @@ body {
     radial-gradient(ellipse at 50% -20%, oklch(0.24 0.08 250 / 0.3) 0%, transparent 60%),
     radial-gradient(circle at 100% 100%, oklch(0.20 0.06 280 / 0.15) 0%, transparent 40%);
   background-attachment: fixed;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 /* Base Typography & Controls decoupling */
@@ -928,6 +934,25 @@ textarea:focus-visible,
   }
   .preset-selector {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .toolbar-divider {
+    display: none;
+  }
+  .workspace-toolbar {
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  .selection-badge {
+    width: 100%;
+    text-align: center;
+  }
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 

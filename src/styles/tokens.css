@@ -32,11 +32,11 @@
   --text-muted: oklch(0.74 0.006 265);     /* >= 7.0:1 contrast against surface (AAA) */
   --text-inverse: #000000;
 
-  /* Typography metrics */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Typography metrics (Thai-Latin Mixed-Script Standard) */
+  --font-sans: 'Inter', 'IBM Plex Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
-  --lh-ui: 1.30;
-  --lh-prose: 1.65;
+  --lh-ui: 1.35;
+  --lh-prose: 1.70;
 
   /* Elevation Shadows & Glassmorphism */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);

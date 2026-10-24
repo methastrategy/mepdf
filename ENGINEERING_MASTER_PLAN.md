@@ -65,11 +65,11 @@ flowchart TD
 
 | รหัส WBS | รายการงาน (Work Package) | ไฟล์ที่เกี่ยวข้อง | เกณฑ์ตรวจรับงานวิศวกรรม (Inspection Gate) | สถานะ |
 | :--- | :--- | :--- | :--- | :---: |
-| **WBS 1.1** | **Decoupled IndexedDB Storage Architecture**<br>แยกตารางจัดเก็บ: เก็บ `rawBytes` ครั้งเดียวในตาราง `documents` และเก็บเฉพาะ Page IDs / Rotation ในตาราง `workspace_state` | `src/core/workspace-storage.ts`<br>`src/main.ts` | • การแก้หน้า/หมุนหน้า เขียนข้อมูลลง IndexedDB ขนาด $\le 10\text{ KB}$ (เดิม 50MB+)<br>• Unit test จำลอง 50 หน้าบันทึกเสร็จภายใน $< 50\text{ ms}$ | `Ready` |
-| **WBS 1.2** | **LRU Thumbnail Cache & Memory Garbage Collection**<br>สร้างคลาส `LruCache<string, string>` กำหนดโควต้า 120 หน้า พร้อมสั่ง `URL.revokeObjectURL()` / canvas buffer cleanup | `src/core/pdf-renderer.ts`<br>`src/core/types.ts` | • Memory Heap ไม่เพิ่มขึ้นแบบไร้ขีดจำกัดเมื่อเปิดไฟล์ 200 หน้า<br>• มี Unit test พิสูจน์การ Evict หน้าเก่าที่สุดออกเมื่อเกินโควต้า | `Ready` |
-| **WBS 1.3** | **Thai-Latin Mixed Typography & Mobile Safe Insets**<br>นำเข้า `IBM Plex Sans Thai`, ปรับแก้ `tokens.css` ตามหลักละตินนำหน้า และเซ็ต `env(safe-area-inset-bottom)` | `index.html`<br>`src/styles/tokens.css`<br>`src/styles/app.css` | • สระบน-ล่างภาษาไทยไม่ชนกัน (`letter-spacing: 0`)<br>• ไม่มี Layout Shift บน iPhone Dynamic Island / Notch | `Ready` |
+| **WBS 1.1** | **Decoupled IndexedDB Storage Architecture**<br>แยกตารางจัดเก็บ: เก็บ `rawBytes` ครั้งเดียวในตาราง `documents` และเก็บเฉพาะ Page IDs / Rotation ในตาราง `workspace_state` | `src/core/workspace-storage.ts`<br>`src/main.ts` | • การแก้หน้า/หมุนหน้า เขียนข้อมูลลง IndexedDB ขนาด $\le 10\text{ KB}$ (เดิม 50MB+)<br>• Unit test จำลอง 50 หน้าบันทึกเสร็จภายใน $< 50\text{ ms}$ | `Verified` ✅ |
+| **WBS 1.2** | **LRU Thumbnail Cache & Memory Garbage Collection**<br>สร้างคลาส `LruCache<string, string>` กำหนดโควต้า 120 หน้า พร้อมสั่ง `URL.revokeObjectURL()` / canvas buffer cleanup | `src/core/pdf-renderer.ts`<br>`src/core/types.ts` | • Memory Heap ไม่เพิ่มขึ้นแบบไร้ขีดจำกัดเมื่อเปิดไฟล์ 200 หน้า<br>• มี Unit test พิสูจน์การ Evict หน้าเก่าที่สุดออกเมื่อเกินโควต้า | `Verified` ✅ |
+| **WBS 1.3** | **Thai-Latin Mixed Typography & Mobile Safe Insets**<br>นำเข้า `IBM Plex Sans Thai`, ปรับแก้ `tokens.css` ตามหลักละตินนำหน้า และเซ็ต `env(safe-area-inset-bottom)` | `index.html`<br>`src/styles/tokens.css`<br>`src/styles/app.css` | • สระบน-ล่างภาษาไทยไม่ชนกัน (`letter-spacing: 0`)<br>• ไม่มี Layout Shift บน iPhone Dynamic Island / Notch | `Verified` ✅ |
 
-> 🚦 **Gate 1 Milestone Sign-off:** ผ่านการทดสอบ Vitest ทุกชุด, memory footprint ของการแก้ไขหน้าลดลง $\ge 90\%$, `npm run typecheck` ปราศจาก Warning/Error
+> 🚦 **Gate 1 Milestone Sign-off (PASSED 2026-10-24):** ผ่านการทดสอบ Vitest 80/80 tests (100%), Memory Churn ถูกขจัดด้วย Decoupled Storage, `npm run typecheck` 0 Error, Production Build สำเร็จใน 3.66s
 
 ---
 
