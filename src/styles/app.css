@@ -2055,3 +2055,147 @@ textarea:focus-visible,
   border-color: var(--border-focus);
 }
 
+/* ========================================================
+   BMW NEUE KLASSE LUXURY COCKPIT STYLING
+   ======================================================== */
+[data-theme="bmw"] body {
+  background-color: var(--bg-app);
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(28, 105, 212, 0.16) 0%, transparent 60%),
+    radial-gradient(circle at 85% 30%, rgba(0, 181, 226, 0.06) 0%, transparent 45%);
+}
+
+/* BMW iDrive Curved Glass Navigation Bar */
+[data-theme="bmw"] .navbar {
+  background-color: rgba(11, 13, 17, 0.78);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(28, 105, 212, 0.2);
+}
+
+[data-theme="bmw"] .brand-logo {
+  background: linear-gradient(135deg, #ffffff 40%, #00b5e2 85%, #1c69d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="bmw"] .brand-badge {
+  background: rgba(28, 105, 212, 0.12);
+  border-color: rgba(28, 105, 212, 0.35);
+  color: #00b5e2;
+  box-shadow: 0 0 12px rgba(28, 105, 212, 0.2);
+}
+
+/* BMW Curved Display Nav Tabs */
+[data-theme="bmw"] .nav-tabs {
+  background: rgba(15, 17, 22, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="bmw"] .nav-tab-btn.active {
+  background: linear-gradient(135deg, rgba(28, 105, 212, 0.28) 0%, rgba(18, 22, 30, 0.95) 100%);
+  border: 1px solid rgba(28, 105, 212, 0.5);
+  color: #ffffff;
+  box-shadow: 0 2px 12px rgba(28, 105, 212, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* BMW Laser Blue Buttons */
+[data-theme="bmw"] .btn-primary {
+  background: linear-gradient(135deg, #2275e6 0%, #165ab8 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 16px rgba(28, 105, 212, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  letter-spacing: 0.01em;
+}
+
+[data-theme="bmw"] .btn-primary:hover {
+  background: linear-gradient(135deg, #2a81f5 0%, #1c69d4 100%);
+  box-shadow: 0 6px 24px rgba(28, 105, 212, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="bmw"] .btn-secondary {
+  background: rgba(21, 24, 33, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="bmw"] .btn-secondary:hover {
+  background: rgba(29, 34, 46, 0.95);
+  border-color: rgba(28, 105, 212, 0.4);
+}
+
+/* Dropzone Luxury Cockpit Container */
+[data-theme="bmw"] .dropzone-container {
+  background: radial-gradient(circle at 50% 50%, rgba(21, 24, 33, 0.85) 0%, rgba(13, 15, 20, 0.95) 100%);
+  border: 1.5px dashed rgba(28, 105, 212, 0.35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(28, 105, 212, 0.04);
+}
+
+[data-theme="bmw"] .dropzone-container:hover,
+[data-theme="bmw"] .dropzone-container.drag-active {
+  border-color: #00b5e2;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 24px rgba(0, 181, 226, 0.25);
+}
+
+/* Modals & Dialogs (Curved Glass iDrive Panel) */
+[data-theme="bmw"] .modal-content {
+  background: rgba(14, 16, 22, 0.88);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 32px rgba(28, 105, 212, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+}
+
+[data-theme="bmw"] .modal-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="bmw"] .modal-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Page Thumbnails & Cards */
+[data-theme="bmw"] .page-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="bmw"] .page-card.selected {
+  border-color: #1c69d4;
+  box-shadow: 0 0 0 2px rgba(28, 105, 212, 0.4), 0 8px 24px rgba(28, 105, 212, 0.25);
+}
+
+/* Theme Switcher Button */
+.theme-switcher-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.theme-switcher-btn:hover {
+  background: var(--surface-overlay);
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+[data-theme="bmw"] .theme-switcher-btn {
+  background: rgba(28, 105, 212, 0.14);
+  border-color: rgba(28, 105, 212, 0.4);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(28, 105, 212, 0.25);
+}
+

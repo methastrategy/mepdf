@@ -54,3 +54,60 @@
   --duration-fast: 150ms;
   --duration-normal: 250ms;
 }
+
+/* ========================================================
+   BMW NEUE KLASSE LUXURY COCKPIT THEME
+   - Obsidian Chassis: #08090b
+   - Precision Laser Blue: #1c69d4
+   - Ambient Ice Cyan: #00b5e2
+   - Frosted iDrive Curved Glass Panels
+   - German Ultra-Thin Hairlines & Bavarian Tri-Contrast
+   ======================================================== */
+[data-theme="bmw"] {
+  /* Color Tokens - BMW Obsidian Chassis */
+  --bg-oled: #040507;
+  --bg-app: #08090b;
+  --surface-base: #0f1116;
+  --surface-raised: #151821;
+  --surface-overlay: rgba(17, 20, 28, 0.82);
+  --surface-active: #1d222e;
+
+  /* German Precision Hairlines */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.16);
+  --border-focus: #1c69d4;
+
+  /* BMW Laser Blue & Ice Cyan Aura */
+  --primary: #1c69d4;
+  --primary-hover: #2678ea;
+  --primary-active: #1453ab;
+  --primary-glow: rgba(28, 105, 212, 0.35);
+  --accent-cyan: #00b5e2;
+
+  /* Functional Telemetry Accents */
+  --danger: #ef4444;
+  --danger-hover: #f87171;
+  --danger-bg: rgba(239, 68, 68, 0.15);
+  --success: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.15);
+
+  /* High-Contrast Luxury Typography */
+  --text-primary: #ffffff;
+  --text-secondary: #c2c9d6;
+  --text-muted: #8d98ab;
+  --text-inverse: #08090b;
+
+  /* BMW Curved Cockpit Glass Geometry */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* Cockpit Elevation & Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.85);
+  --shadow-glow: 0 0 28px rgba(28, 105, 212, 0.35);
+}

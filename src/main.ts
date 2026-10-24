@@ -18,6 +18,7 @@ import {
   Stamp,
   Hash,
   Tag,
+  Sparkles,
 } from 'lucide';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -139,6 +140,11 @@ class MePdfApp {
         <div class="nav-actions">
           <div id="nav-user-account-container"></div>
 
+          <button class="theme-switcher-btn" id="nav-theme-toggle-btn" title="Toggle BMW Neue Klasse Luxury Theme">
+            <i data-lucide="sparkles" style="width: 14px; height: 14px; color: var(--primary);"></i>
+            <span id="nav-theme-label">BMW</span>
+          </button>
+
           <button class="lang-switcher-btn" id="nav-lang-toggle-btn" title="Switch Language / สลับภาษา">
             <i data-lucide="globe" style="width: 14px; height: 14px;"></i>
             <span class="lang-opt ${lang === 'th' ? 'active' : ''}">TH</span>
@@ -204,6 +210,7 @@ class MePdfApp {
         Stamp,
         Hash,
         Tag,
+        Sparkles,
       },
       nameAttr: 'data-lucide',
     });
@@ -273,6 +280,37 @@ class MePdfApp {
       const nextLang = getLanguage() === 'th' ? 'en' : 'th';
       setLanguage(nextLang);
       toast.show(t('toastLanguageSwitched'), 'info');
+    });
+
+    // Theme toggle button (BMW Neue Klasse Luxury vs Studio Dark)
+    const themeBtn = this.appEl.querySelector<HTMLButtonElement>('#nav-theme-toggle-btn');
+    const themeLabel = this.appEl.querySelector<HTMLElement>('#nav-theme-label');
+
+    const updateThemeUI = (theme: string) => {
+      if (theme === 'bmw') {
+        document.documentElement.setAttribute('data-theme', 'bmw');
+        if (themeLabel) themeLabel.textContent = 'BMW';
+        themeBtn?.setAttribute('title', 'Active: BMW Neue Klasse Luxury (Click to switch to Studio Dark)');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        if (themeLabel) themeLabel.textContent = 'Dark';
+        themeBtn?.setAttribute('title', 'Active: Studio Dark (Click to switch to BMW Neue Klasse)');
+      }
+    };
+
+    // Initialize theme (default: 'bmw')
+    const currentTheme = localStorage.getItem('mepdf_theme') || 'bmw';
+    updateThemeUI(currentTheme);
+
+    themeBtn?.addEventListener('click', () => {
+      const active = document.documentElement.getAttribute('data-theme');
+      const nextTheme = active === 'bmw' ? 'dark' : 'bmw';
+      localStorage.setItem('mepdf_theme', nextTheme);
+      updateThemeUI(nextTheme);
+      toast.show(
+        nextTheme === 'bmw' ? 'BMW Neue Klasse Luxury Theme' : 'Studio Dark Theme',
+        'info'
+      );
     });
 
     // Keyboard shortcuts
