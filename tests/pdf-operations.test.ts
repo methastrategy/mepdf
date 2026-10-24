@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { splitPagesByRanges, mergePages, protectPdf, addWatermarkToPdf, addPageNumbersToPdf } from '../src/core/pdf-operations';
+import {
+  splitPagesByRanges,
+  mergePages,
+  protectPdf,
+  addWatermarkToPdf,
+  addPageNumbersToPdf,
+  getPDFMetadata,
+  updatePdfMetadata,
+} from '../src/core/pdf-operations';
 import { getDefaultSplitRange } from '../src/components/Modal';
 import {
   clearThumbnailCache,
@@ -420,5 +428,54 @@ describe('Automated Page Numbering Engine (addPageNumbersToPdf)', () => {
 
     const verifiedDoc = await PDFDocument.load(numberedBytes);
     expect(verifiedDoc.getPageCount()).toBe(3);
+  });
+});
+
+describe('PDF Metadata Sanitizer & Editor (getPDFMetadata & updatePdfMetadata)', () => {
+  it('reads and updates metadata fields faithfully', async () => {
+    const doc = await PDFDocument.create();
+    doc.setTitle('Initial Title');
+    doc.setAuthor('Initial Author');
+    doc.addPage([300, 300]);
+    const originalBytes = await doc.save();
+
+    const readInitial = await getPDFMetadata(originalBytes);
+    expect(readInitial.title).toBe('Initial Title');
+    expect(readInitial.author).toBe('Initial Author');
+
+    const updatedBytes = await updatePdfMetadata(
+      originalBytes,
+      {
+        title: 'Confidential Report 2026',
+        author: 'Survey Engineering Team',
+        subject: 'Geodetic Survey',
+        keywords: 'geodesy, survey, mepdf',
+      },
+      false
+    );
+
+    const readUpdated = await getPDFMetadata(updatedBytes);
+    expect(readUpdated.title).toBe('Confidential Report 2026');
+    expect(readUpdated.author).toBe('Survey Engineering Team');
+    expect(readUpdated.subject).toBe('Geodetic Survey');
+    expect(readUpdated.keywords).toContain('geodesy');
+  });
+
+  it('sanitizes all metadata completely in 1-click clean mode', async () => {
+    const doc = await PDFDocument.create();
+    doc.setTitle('Secret Document');
+    doc.setAuthor('Jane Doe');
+    doc.setCreator('Internal Scanner v12');
+    doc.setProducer('Proprietary Software');
+    doc.addPage([300, 300]);
+    const originalBytes = await doc.save();
+
+    const cleanedBytes = await updatePdfMetadata(originalBytes, {}, true);
+    const readCleaned = await getPDFMetadata(cleanedBytes);
+
+    expect(readCleaned.title).toBe('');
+    expect(readCleaned.author).toBe('');
+    expect(readCleaned.creator).toBe('');
+    expect(readCleaned.producer).toBe('');
   });
 });

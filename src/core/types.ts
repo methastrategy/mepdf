@@ -110,3 +110,14 @@ export interface PageNumberOptions {
   color?: { r: number; g: number; b: number };
   margin?: number;
 }
+
+export interface PDFInfoMetadata {
+  title?: string;
+  author?: string;
+  subject?: string;
+  keywords?: string;
+  creator?: string;
+  producer?: string;
+  creationDate?: Date;
+  modificationDate?: Date;
+}

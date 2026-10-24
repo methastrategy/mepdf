@@ -5,6 +5,7 @@ export type ToolRoute =
   | 'protect'
   | 'watermark'
   | 'page-numbers'
+  | 'metadata'
   | 'img2pdf'
   | 'pdf2img'
   | 'extract-text'
@@ -22,6 +23,8 @@ export const HASH_TO_ROUTE_MAP: Record<string, ToolRoute> = {
   '#/page-numbers': 'page-numbers',
   '#/page-number': 'page-numbers',
   '#/pagenumber': 'page-numbers',
+  '#/metadata': 'metadata',
+  '#/info': 'metadata',
   '#/pdf-to-images': 'pdf2img',
   '#/pdf2img': 'pdf2img',
   '#/images-to-pdf': 'img2pdf',
@@ -40,6 +43,7 @@ export const ROUTE_TO_HASH_MAP: Record<ToolRoute, string> = {
   protect: '#/protect',
   watermark: '#/watermark',
   'page-numbers': '#/page-numbers',
+  metadata: '#/metadata',
   img2pdf: '#/images-to-pdf',
   pdf2img: '#/pdf-to-images',
   'extract-text': '#/extract-text',

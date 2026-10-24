@@ -9,6 +9,7 @@ import type {
   ProgressCallback,
   WatermarkOptions,
   PageNumberOptions,
+  PDFInfoMetadata,
 } from './types';
 import { loadPdfDocument, renderPageToCanvas, extractTextFromDoc, destroyPdfDocument } from './pdf-renderer';
 
@@ -676,6 +677,58 @@ export async function addPageNumbersToPdf(
         percent: Math.round(((i + 1) / total) * 100),
       });
     }
+  }
+
+  return await doc.save();
+}
+
+/**
+ * Reads existing metadata information from a PDF document.
+ */
+export async function getPDFMetadata(fileBytes: Uint8Array): Promise<PDFInfoMetadata> {
+  const doc = await PDFDocument.load(fileBytes, { ignoreEncryption: true, updateMetadata: false });
+  return {
+    title: doc.getTitle() || '',
+    author: doc.getAuthor() || '',
+    subject: doc.getSubject() || '',
+    keywords: (doc.getKeywords() || '').trim(),
+    creator: doc.getCreator() || '',
+    producer: doc.getProducer() || '',
+    creationDate: doc.getCreationDate(),
+    modificationDate: doc.getModificationDate(),
+  };
+}
+
+/**
+ * Sanitizes or updates document metadata (Author, Title, Subject, Creator, Producer).
+ */
+export async function updatePdfMetadata(
+  fileBytes: Uint8Array,
+  metadata: PDFInfoMetadata,
+  sanitizeAll = false
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(fileBytes, { ignoreEncryption: true, updateMetadata: false });
+
+  if (sanitizeAll) {
+    doc.setTitle('');
+    doc.setAuthor('');
+    doc.setSubject('');
+    doc.setKeywords([]);
+    doc.setCreator('');
+    doc.setProducer('');
+  } else {
+    if (metadata.title !== undefined) doc.setTitle(metadata.title);
+    if (metadata.author !== undefined) doc.setAuthor(metadata.author);
+    if (metadata.subject !== undefined) doc.setSubject(metadata.subject);
+    if (metadata.keywords !== undefined) {
+      const kw = metadata.keywords
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      doc.setKeywords(kw);
+    }
+    if (metadata.creator !== undefined) doc.setCreator(metadata.creator);
+    if (metadata.producer !== undefined) doc.setProducer(metadata.producer);
   }
 
   return await doc.save();

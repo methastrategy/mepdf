@@ -13,6 +13,7 @@ export const translations = {
     tabProtect: 'Protect PDF',
     tabWatermark: 'Watermark',
     tabNumbering: 'Page Numbers',
+    tabMetadata: 'Metadata',
     tabImg2Pdf: 'Images to PDF',
     tabPdf2Img: 'PDF to Images',
     tabExtractText: 'Extract Text',
@@ -173,6 +174,21 @@ export const translations = {
     numberingBtn: 'Add Page Numbers & Download',
     toastNumberingSuccess: 'Page numbers added and downloaded successfully!',
 
+    // Metadata modal
+    metadataModalTitle: 'PDF Metadata & Privacy',
+    metadataModalDesc: 'Inspect, sanitize, or edit document metadata to protect your privacy before sharing.',
+    metadataQuickSanitizeBtn: 'Sanitize All (1-Click Privacy Clean)',
+    metadataTitleLabel: 'Document Title',
+    metadataAuthorLabel: 'Author / Creator',
+    metadataSubjectLabel: 'Subject',
+    metadataKeywordsLabel: 'Keywords (comma-separated)',
+    metadataCreatorLabel: 'Creator Application',
+    metadataProducerLabel: 'PDF Producer',
+    metadataCleanHint: 'Sanitizing clears author, application name, and device traces completely.',
+    metadataSaveBtn: 'Save Metadata & Download',
+    toastMetadataSanitized: 'Metadata sanitized and cleaned completely!',
+    toastMetadataSaved: 'Metadata updated and downloaded successfully!',
+
     // PDF to Images modal
     pdf2imgModalTitle: 'Convert PDF Pages to Images',
     pdf2imgModalDesc: 'Render and extract each page as high-resolution PNG or JPG image.',
@@ -320,6 +336,7 @@ export const translations = {
     tabProtect: 'ล็อกรหัสผ่าน',
     tabWatermark: 'ใส่ลายน้ำ',
     tabNumbering: 'รันเลขหน้า',
+    tabMetadata: 'ข้อมูลเอกสาร',
     tabImg2Pdf: 'รูปภาพเป็น PDF',
     tabPdf2Img: 'PDF เป็นรูปภาพ',
     tabExtractText: 'ดึงข้อความ',
@@ -479,6 +496,21 @@ export const translations = {
     numberingMarginWide: 'กว้าง (42pt)',
     numberingBtn: 'รันเลขหน้าและดาวน์โหลด',
     toastNumberingSuccess: 'รันเลขหน้าและดาวน์โหลด PDF สำเร็จแล้ว!',
+
+    // Metadata modal
+    metadataModalTitle: 'ข้อมูลและสิทธิ์เอกสาร PDF',
+    metadataModalDesc: 'ตรวจสอบ ลบ หรือแก้ไขข้อมูลส่วนบุคคลของเอกสารเพื่อความปลอดภัยก่อนส่งต่อ',
+    metadataQuickSanitizeBtn: 'ล้างข้อมูลส่วนบุคคลทั้งหมด (1-Click Clean)',
+    metadataTitleLabel: 'ชื่อเรื่อง (Title)',
+    metadataAuthorLabel: 'ผู้สร้าง/ผู้เขียน (Author)',
+    metadataSubjectLabel: 'หัวข้อ (Subject)',
+    metadataKeywordsLabel: 'คำสำคัญ (Keywords คั่นด้วยจุลภาค)',
+    metadataCreatorLabel: 'แอปพลิเคชันที่ใช้สร้าง (Creator)',
+    metadataProducerLabel: 'ตัวแปลง PDF (Producer)',
+    metadataCleanHint: 'การล้างข้อมูลจะลบชื่อผู้เขียน ชื่อโปรแกรม และร่องรอยอุปกรณ์ทิ้ง 100%',
+    metadataSaveBtn: 'บันทึกข้อมูลและดาวน์โหลด',
+    toastMetadataSanitized: 'ล้างข้อมูลส่วนบุคคลใน PDF เรียบร้อยแล้ว!',
+    toastMetadataSaved: 'อัปเดตข้อมูลเอกสารและดาวน์โหลดสำเร็จแล้ว!',
 
     // PDF to Images modal
     pdf2imgModalTitle: 'แปลงหน้า PDF เป็นรูปภาพ',

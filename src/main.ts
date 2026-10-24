@@ -17,6 +17,7 @@ import {
   Lock,
   Stamp,
   Hash,
+  Tag,
 } from 'lucide';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -116,6 +117,10 @@ class MePdfApp {
             <i data-lucide="hash" style="width: 15px; height: 15px;"></i>
             <span>${t('tabNumbering')}</span>
           </button>
+          <button class="nav-tab-btn" data-tab="metadata">
+            <i data-lucide="tag" style="width: 15px; height: 15px;"></i>
+            <span>${t('tabMetadata')}</span>
+          </button>
           <button class="nav-tab-btn" data-tab="img2pdf">
             <i data-lucide="image" style="width: 15px; height: 15px;"></i>
             <span>${t('tabImg2Pdf')}</span>
@@ -197,6 +202,7 @@ class MePdfApp {
         Lock,
         Stamp,
         Hash,
+        Tag,
       },
       nameAttr: 'data-lucide',
     });
@@ -1013,6 +1019,8 @@ class MePdfApp {
         modal.showWatermarkModal(docBytes, docName);
       } else if (tab === 'page-numbers') {
         modal.showPageNumberModal(docBytes, docName);
+      } else if (tab === 'metadata') {
+        await modal.showMetadataModal(docBytes, docName);
       } else if (tab === 'pdf2img') {
         modal.showPdfToImagesModal(docBytes, docName, password);
       } else if (tab === 'extract-text') {
@@ -1076,6 +1084,7 @@ class MePdfApp {
       protect: t('tabProtect'),
       watermark: t('tabWatermark'),
       'page-numbers': t('tabNumbering'),
+      metadata: t('tabMetadata'),
       img2pdf: t('tabImg2Pdf'),
       pdf2img: t('tabPdf2Img'),
       'extract-text': t('tabExtractText'),
