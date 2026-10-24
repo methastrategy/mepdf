@@ -22,10 +22,13 @@ export interface DocumentMetadata {
 
 export type CompressionPreset = 'screen' | 'ebook' | 'printer' | 'custom';
 
+export type CompressionMode = 'lossless' | 'scanned';
+
 export interface CompressionOptions {
-  preset: CompressionPreset;
-  dpi: number;
-  quality: number; // 0.1 to 1.0
+  mode?: CompressionMode;
+  preset?: CompressionPreset;
+  dpi?: number;
+  quality?: number; // 0.1 to 1.0
   maxDimension?: number;
 }
 

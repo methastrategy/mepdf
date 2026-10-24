@@ -21,10 +21,78 @@ export const COMPRESSION_PRESETS: Record<string, CompressionOptions> = {
 };
 
 /**
- * In-browser Smart PDF Compressor.
+ * Lossless stream compression engine.
+ * Repacks PDF structures into compressed cross-reference Object Streams (/ObjStm)
+ * and purges orphaned incremental edit history while preserving 100% vector fidelity,
+ * embedded fonts, and Ctrl+F text searchability.
+ */
+export async function compressPdfLossless(
+  originalBytes: Uint8Array,
+  onProgress?: ProgressCallback,
+  _password?: string
+): Promise<CompressionResult> {
+  const originalSize = originalBytes.byteLength;
+  if (onProgress) {
+    onProgress({ stage: 'Analyzing vector streams', current: 1, total: 3, percent: 30 });
+  }
+
+  const srcDoc = await PDFDocument.load(originalBytes, { ignoreEncryption: true, updateMetadata: false });
+  const targetDoc = await PDFDocument.create();
+
+  if (onProgress) {
+    onProgress({ stage: 'Extracting clean page trees', current: 2, total: 3, percent: 60 });
+  }
+
+  const pageIndices = srcDoc.getPageIndices();
+  const copiedPages = await targetDoc.copyPages(srcDoc, pageIndices);
+  for (const page of copiedPages) {
+    targetDoc.addPage(page);
+  }
+
+  // Preserve document metadata if present
+  const title = srcDoc.getTitle();
+  const author = srcDoc.getAuthor();
+  const subject = srcDoc.getSubject();
+  const keywords = srcDoc.getKeywords();
+  if (title) targetDoc.setTitle(title);
+  if (author) targetDoc.setAuthor(author);
+  if (subject) targetDoc.setSubject(subject);
+  if (keywords) {
+    const kwList = keywords.split(',').map((s) => s.trim()).filter(Boolean);
+    if (kwList.length > 0) targetDoc.setKeywords(kwList);
+  }
+
+  if (onProgress) {
+    onProgress({ stage: 'Deflating object streams', current: 3, total: 3, percent: 90 });
+  }
+
+  const compressedBytes = await targetDoc.save({
+    useObjectStreams: true,
+    objectsPerTick: 50,
+  });
+
+  const compressedSize = compressedBytes.byteLength;
+  const ratio = originalSize > 0 ? compressedSize / originalSize : 1.0;
+  const ineffective = compressedSize >= originalSize;
+
+  if (onProgress) {
+    onProgress({ stage: 'Complete', current: 3, total: 3, percent: 100 });
+  }
+
+  return {
+    pdfBytes: compressedBytes,
+    originalSize,
+    compressedSize,
+    ratio,
+    ineffective,
+  };
+}
+
+/**
+ * Scanned PDF Downsampler.
  * Downsamples high-resolution scanned graphics and re-encodes pages using HTML5 Canvas & pdf-lib.
  */
-export async function compressPdf(
+export async function compressPdfScanned(
   originalBytes: Uint8Array,
   options: CompressionOptions,
   onProgress?: ProgressCallback,
@@ -35,7 +103,9 @@ export async function compressPdf(
   try {
     const total = pdfDoc.numPages;
     const targetDoc = await PDFDocument.create();
-    const scale = options.dpi / 72.0;
+    const dpi = options.dpi ?? 150;
+    const quality = options.quality ?? 0.78;
+    const scale = dpi / 72.0;
 
     for (let i = 1; i <= total; i++) {
       // Check unscaled viewport to prevent browser canvas allocation crashes on huge pages
@@ -57,7 +127,7 @@ export async function compressPdf(
         canvas.toBlob(
           (b) => (b ? resolve(b) : reject(new Error('Failed to compress canvas to JPEG'))),
           'image/jpeg',
-          options.quality
+          quality
         );
       });
 
@@ -105,4 +175,20 @@ export async function compressPdf(
   } finally {
     await destroyPdfDocument(pdfDoc);
   }
+}
+
+/**
+ * In-browser Dual-Engine PDF Compressor.
+ * Dispatches between Lossless Stream Deflation (vector text preserving) and Scanned Canvas Downsampling.
+ */
+export async function compressPdf(
+  originalBytes: Uint8Array,
+  options: CompressionOptions,
+  onProgress?: ProgressCallback,
+  password?: string
+): Promise<CompressionResult> {
+  if (options.mode === 'lossless') {
+    return compressPdfLossless(originalBytes, onProgress, password);
+  }
+  return compressPdfScanned(originalBytes, options, onProgress, password);
 }

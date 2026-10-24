@@ -19,22 +19,18 @@ import {
   Hash,
   Tag,
   ShieldAlert,
+  FileCheck,
 } from 'lucide';
 import JSZip from 'jszip';
 import { formatBytes, downloadBytes, downloadBlob, escapeHtml } from '../utils/file-utils';
 import { COMPRESSION_PRESETS, compressPdf } from '../core/pdf-compressor';
+import { pdfWorker } from '../core/worker-client';
 import {
-  splitPagesByRanges,
   imagesToPdf,
   pdfToImages,
   createImagesZip,
   extractText,
-  mergePages,
-  protectPdf,
-  addWatermarkToPdf,
-  addPageNumbersToPdf,
   getPDFMetadata,
-  updatePdfMetadata,
 } from '../core/pdf-operations';
 import { toast } from './Toast';
 import { progressOverlay } from './ProgressOverlay';
@@ -239,6 +235,7 @@ export class ModalManager {
         Hash,
         Tag,
         ShieldAlert,
+        FileCheck,
       },
       nameAttr: 'data-lucide',
     });
@@ -248,48 +245,71 @@ export class ModalManager {
   // COMPRESS MODAL
   // ==========================================
   showCompressModal(documentBytes: Uint8Array, filename = 'document.pdf', password?: string): void {
+    let selectedEngine: 'lossless' | 'scanned' = 'lossless';
     let selectedPreset: CompressionPreset = 'ebook';
     let currentQuality = 0.78;
     const originalSize = documentBytes.byteLength;
 
     const title = `<i data-lucide="minimize-2" style="width: 18px; height: 18px; color: var(--primary);"></i> ${t('compressModalTitle')}`;
     const bodyHtml = `
-      <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5;">
+      <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.75rem;">
         ${t('compressModalDesc')}
       </div>
 
       <div class="form-group">
-        <label class="form-label">${t('compressPresetLabel')}</label>
-        <div class="preset-selector">
-          <div class="preset-card" data-preset="screen" data-dpi="96" data-quality="0.65">
-            <div class="preset-title">${t('compressPresetScreen')}</div>
-            <div class="preset-desc">${t('compressPresetScreenDesc')}</div>
+        <label class="form-label">${t('compressEngineLabel')}</label>
+        <div class="preset-selector" id="compress-engine-selector" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="preset-card active" data-engine="lossless">
+            <div class="preset-title" style="display: flex; align-items: center; gap: 0.4rem;">
+              <i data-lucide="file-check" style="width: 16px; height: 16px; color: var(--success);"></i>
+              ${t('compressEngineLossless')}
+            </div>
+            <div class="preset-desc">${t('compressEngineLosslessDesc')}</div>
           </div>
-          <div class="preset-card active" data-preset="ebook" data-dpi="150" data-quality="0.78">
-            <div class="preset-title">${t('compressPresetEbook')}</div>
-            <div class="preset-desc">${t('compressPresetEbookDesc')}</div>
-          </div>
-          <div class="preset-card" data-preset="printer" data-dpi="300" data-quality="0.90">
-            <div class="preset-title">${t('compressPresetPrint')}</div>
-            <div class="preset-desc">${t('compressPresetPrintDesc')}</div>
+          <div class="preset-card" data-engine="scanned">
+            <div class="preset-title" style="display: flex; align-items: center; gap: 0.4rem;">
+              <i data-lucide="image" style="width: 16px; height: 16px; color: var(--primary);"></i>
+              ${t('compressEngineScanned')}
+            </div>
+            <div class="preset-desc">${t('compressEngineScannedDesc')}</div>
           </div>
         </div>
       </div>
 
-      <div class="form-group">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <label class="form-label" for="compress-quality-slider">${t('compressQualitySlider')}</label>
-          <span id="compress-quality-value" style="font-size: 0.8125rem; font-weight: 700; color: var(--primary);">78%</span>
+      <div id="compress-scanned-controls" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">${t('compressPresetLabel')}</label>
+          <div class="preset-selector">
+            <div class="preset-card" data-preset="screen" data-dpi="96" data-quality="0.65">
+              <div class="preset-title">${t('compressPresetScreen')}</div>
+              <div class="preset-desc">${t('compressPresetScreenDesc')}</div>
+            </div>
+            <div class="preset-card active" data-preset="ebook" data-dpi="150" data-quality="0.78">
+              <div class="preset-title">${t('compressPresetEbook')}</div>
+              <div class="preset-desc">${t('compressPresetEbookDesc')}</div>
+            </div>
+            <div class="preset-card" data-preset="printer" data-dpi="300" data-quality="0.90">
+              <div class="preset-title">${t('compressPresetPrint')}</div>
+              <div class="preset-desc">${t('compressPresetPrintDesc')}</div>
+            </div>
+          </div>
         </div>
-        <input type="range" class="form-range" id="compress-quality-slider" min="10" max="95" value="78" step="1" />
-        <div style="display: flex; justify-content: space-between; font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.2rem;">
-          <span>${t('compressMaxSavings')}</span>
-          <span>${t('compressBalanced')}</span>
-          <span>${t('compressMaxQuality')}</span>
+
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="form-label" for="compress-quality-slider">${t('compressQualitySlider')}</label>
+            <span id="compress-quality-value" style="font-size: 0.8125rem; font-weight: 700; color: var(--primary);">78%</span>
+          </div>
+          <input type="range" class="form-range" id="compress-quality-slider" min="10" max="95" value="78" step="1" />
+          <div style="display: flex; justify-content: space-between; font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.2rem;">
+            <span>${t('compressMaxSavings')}</span>
+            <span>${t('compressBalanced')}</span>
+            <span>${t('compressMaxQuality')}</span>
+          </div>
         </div>
       </div>
 
-      <div class="size-comparison-card" style="background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.1rem;">
+      <div class="size-comparison-card" style="background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.1rem; margin-top: 0.5rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
           <div>
             <div style="font-size: 0.75rem; color: var(--text-muted);">${t('compressCurrentSize')}</div>
@@ -301,7 +321,7 @@ export class ModalManager {
           </div>
         </div>
         <div id="compress-stats-summary" style="font-size: 0.8125rem; color: var(--text-muted); border-top: 1px dashed var(--border-subtle); padding-top: 0.5rem; display: flex; justify-content: space-between;">
-          <span>${t('compressTargetDpi', { dpi: '<strong id="compress-dpi-label" style="color: var(--text-secondary);">150</strong>' })}</span>
+          <span id="compress-engine-note" style="color: var(--text-secondary);">Deflate Object Streams (Vector Preserved)</span>
           <span id="compress-est-label">${t('compressEstSavings')}</span>
         </div>
       </div>
@@ -317,11 +337,37 @@ export class ModalManager {
 
     this.open(title, bodyHtml, footerHtml);
 
+    // Engine switcher interactions
+    const engineCards = this.bodyContent.querySelectorAll<HTMLElement>('#compress-engine-selector .preset-card');
+    const scannedControls = this.bodyContent.querySelector<HTMLElement>('#compress-scanned-controls')!;
+    const engineNoteEl = this.bodyContent.querySelector<HTMLElement>('#compress-engine-note');
+
+    engineCards.forEach((card) => {
+      card.addEventListener('click', () => {
+        engineCards.forEach((c) => c.classList.remove('active'));
+        card.classList.add('active');
+        selectedEngine = (card.getAttribute('data-engine') as 'lossless' | 'scanned') || 'lossless';
+
+        if (selectedEngine === 'lossless') {
+          scannedControls.style.display = 'none';
+          if (engineNoteEl) {
+            engineNoteEl.textContent = 'Deflate Object Streams (Vector Preserved)';
+          }
+        } else {
+          scannedControls.style.display = 'block';
+          if (engineNoteEl) {
+            engineNoteEl.innerHTML = t('compressTargetDpi', {
+              dpi: '<strong style="color: var(--text-secondary);">' + (selectedPreset === 'screen' ? '96' : selectedPreset === 'printer' ? '300' : '150') + '</strong>',
+            });
+          }
+        }
+      });
+    });
+
     // Preset selector interactions
-    const presetCards = this.bodyContent.querySelectorAll<HTMLElement>('.preset-card');
+    const presetCards = this.bodyContent.querySelectorAll<HTMLElement>('#compress-scanned-controls .preset-card');
     const qualitySlider = this.bodyContent.querySelector<HTMLInputElement>('#compress-quality-slider')!;
     const qualityValueEl = this.bodyContent.querySelector<HTMLElement>('#compress-quality-value')!;
-    const dpiLabelEl = this.bodyContent.querySelector<HTMLElement>('#compress-dpi-label')!;
 
     presetCards.forEach((card) => {
       card.addEventListener('click', () => {
@@ -334,7 +380,11 @@ export class ModalManager {
         currentQuality = presetQ;
         qualitySlider.value = String(Math.round(presetQ * 100));
         qualityValueEl.textContent = `${Math.round(presetQ * 100)}%`;
-        if (dpiLabelEl) dpiLabelEl.textContent = presetDpi;
+        if (engineNoteEl && selectedEngine === 'scanned') {
+          engineNoteEl.innerHTML = t('compressTargetDpi', {
+            dpi: `<strong style="color: var(--text-secondary);">${presetDpi}</strong>`,
+          });
+        }
       });
     });
 
@@ -352,15 +402,27 @@ export class ModalManager {
         startBtn.disabled = true;
         progressOverlay.show('Compressing PDF...');
 
-        const presetConfig = COMPRESSION_PRESETS[selectedPreset] ?? COMPRESSION_PRESETS['ebook']!;
-        const options = {
-          ...presetConfig,
-          quality: currentQuality,
-        };
-
-        const result = await compressPdf(documentBytes, options, (info) => {
-          progressOverlay.update(info);
-        }, password);
+        let result;
+        if (selectedEngine === 'lossless') {
+          result = await pdfWorker.compressLossless(documentBytes, (info) => {
+            progressOverlay.update(info);
+          });
+        } else {
+          const presetConfig = COMPRESSION_PRESETS[selectedPreset] ?? COMPRESSION_PRESETS['ebook']!;
+          const options = {
+            mode: 'scanned' as const,
+            ...presetConfig,
+            quality: currentQuality,
+          };
+          result = await compressPdf(
+            documentBytes,
+            options,
+            (info) => {
+              progressOverlay.update(info);
+            },
+            password
+          );
+        }
 
         progressOverlay.hide();
 
@@ -525,7 +587,7 @@ export class ModalManager {
 
       try {
         progressOverlay.show('Encrypting and protecting PDF...');
-        const protectedBytes = await protectPdf(documentBytes, pwd);
+        const protectedBytes = await pdfWorker.protectPdf(documentBytes, pwd);
         progressOverlay.hide();
         this.close();
 
@@ -801,7 +863,7 @@ export class ModalManager {
           position: selectedPosition,
         };
 
-        const watermarkedBytes = await addWatermarkToPdf(documentBytes, options, (info) => {
+        const watermarkedBytes = await pdfWorker.watermarkPdf(documentBytes, options, (info) => {
           progressOverlay.update(info);
         });
 
@@ -970,7 +1032,7 @@ export class ModalManager {
           startPageNumber: 1,
         };
 
-        const numberedBytes = await addPageNumbersToPdf(documentBytes, options, (info) => {
+        const numberedBytes = await pdfWorker.pageNumbers(documentBytes, options, (info) => {
           progressOverlay.update(info);
         });
 
@@ -1129,7 +1191,7 @@ export class ModalManager {
 
       try {
         progressOverlay.show('Sanitizing all document metadata...');
-        const cleanedBytes = await updatePdfMetadata(documentBytes, {}, true);
+        const cleanedBytes = await pdfWorker.updatePdfMetadata(documentBytes, {}, true);
         progressOverlay.hide();
         this.close();
 
@@ -1149,7 +1211,7 @@ export class ModalManager {
       saveBtn.disabled = true;
       try {
         progressOverlay.show('Updating document metadata...');
-        const updatedBytes = await updatePdfMetadata(
+        const updatedBytes = await pdfWorker.updatePdfMetadata(
           documentBytes,
           {
             title: titleInput.value.trim(),
@@ -1236,13 +1298,13 @@ export class ModalManager {
 
         if (mode === 'selected') {
           const selectedPages = pages.filter((p) => p.selected);
-          const bytes = await mergePages(selectedPages, documentMap, (info) => progressOverlay.update(info));
+          const bytes = await pdfWorker.mergePages(selectedPages, documentMap, (info) => progressOverlay.update(info));
           progressOverlay.hide();
           downloadBytes(bytes, `${baseFilename}_selected.pdf`);
           toast.show(`Exported ${selectedPages.length} selected pages!`, 'success');
           this.close();
         } else if (mode === 'each') {
-          const results = await splitPagesByRanges(pages, documentMap, '', baseFilename, (info) => {
+          const results = await pdfWorker.splitPagesByRanges(pages, documentMap, '', baseFilename, (info) => {
             progressOverlay.update(info);
           });
           progressOverlay.hide();
@@ -1260,7 +1322,7 @@ export class ModalManager {
           this.close();
         } else {
           const rangeStr = rangeInput.value.trim();
-          const results = await splitPagesByRanges(pages, documentMap, rangeStr, baseFilename, (info) => {
+          const results = await pdfWorker.splitPagesByRanges(pages, documentMap, rangeStr, baseFilename, (info) => {
             progressOverlay.update(info);
           });
           progressOverlay.hide();

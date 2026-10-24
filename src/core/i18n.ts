@@ -76,6 +76,11 @@ export const translations = {
     compressModalTitle: 'Smart PDF Compression',
     compressModalDesc:
       'Downsamples high-resolution scanned graphics and optimizes page structures directly in your browser with zero server upload.',
+    compressEngineLabel: 'Compression Engine',
+    compressEngineLossless: 'Lossless Vector (Keep Text & Ctrl+F)',
+    compressEngineLosslessDesc: 'Deflates object streams and purges unreferenced objects without rasterizing fonts or vector lines.',
+    compressEngineScanned: 'Canvas Downsampling (Scanned Docs)',
+    compressEngineScannedDesc: 'Re-encodes pages to JPEG at target DPI. Best for heavy photo scans and scanned paper.',
     compressPresetLabel: 'Compression Preset',
     compressPresetScreen: 'Screen',
     compressPresetScreenDesc: '96 DPI • Maximum savings',
@@ -399,6 +404,11 @@ export const translations = {
     compressModalTitle: 'บีบอัด PDF อัจฉริยะ',
     compressModalDesc:
       'ลดขนาดภาพสแกนความละเอียดสูงและปรับโครงสร้างหน้าบนเบราว์เซอร์ของคุณโดยตรง ไม่มีการส่งไฟล์ขึ้นเซิร์ฟเวอร์',
+    compressEngineLabel: 'รูปแบบเอนจินการบีบอัด',
+    compressEngineLossless: 'เอกสารพิมพ์เวกเตอร์ (รักษาข้อความ & ค้นหาได้)',
+    compressEngineLosslessDesc: 'บีบอัด Object Streams โดยไม่แปลงตัวอักษรเป็นรูปภาพ ข้อความคมชัด 100% ค้นหา Ctrl+F ได้สมบูรณ์',
+    compressEngineScanned: 'เอกสารสแกน / ย่อขนาดภาพ (Canvas Downsample)',
+    compressEngineScannedDesc: 'เรนเดอร์ย่อภาพสแกนตามค่า DPI เหมาะกับเอกสารสแกนจากเครื่องสแกนหรือรูปภาพ',
     compressPresetLabel: 'รูปแบบการบีบอัด',
     compressPresetScreen: 'หน้าจอ (Screen)',
     compressPresetScreenDesc: '96 DPI • ลดขนาดสูงสุด',

@@ -29,7 +29,8 @@ import {
   clearThumbnailCache,
   removeDocThumbnails,
 } from './core/pdf-renderer';
-import { mergePages, imagesToPdf } from './core/pdf-operations';
+import { imagesToPdf } from './core/pdf-operations';
+import { pdfWorker } from './core/worker-client';
 import { readFileAsUint8Array, downloadBytes } from './utils/file-utils';
 import { Toolbar } from './components/Toolbar';
 import { VisualGrid } from './components/VisualGrid';
@@ -805,7 +806,7 @@ class MePdfApp {
 
     try {
       progressOverlay.show('Merging and building PDF...');
-      const mergedBytes = await mergePages(this.pages, this.documents, (info) => {
+      const mergedBytes = await pdfWorker.mergePages(this.pages, this.documents, (info) => {
         progressOverlay.update(info);
       });
       progressOverlay.hide();
@@ -918,7 +919,7 @@ class MePdfApp {
 
     // Generate exact merged document representing current workspace state
     progressOverlay.show('Preparing workspace document...');
-    const mergedBytes = await mergePages(this.pages, this.documents, (info) => {
+    const mergedBytes = await pdfWorker.mergePages(this.pages, this.documents, (info) => {
       progressOverlay.update(info);
     });
     progressOverlay.hide();
