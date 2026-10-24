@@ -62,3 +62,25 @@ export interface ExtractedImageItem {
   width: number;
   height: number;
 }
+
+export type WatermarkPosition =
+  | 'center'
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right';
+
+export interface WatermarkOptions {
+  type: 'text' | 'image';
+  text?: string;
+  imageBytes?: Uint8Array;
+  imageType?: 'png' | 'jpeg';
+  fontSize?: number;
+  color?: { r: number; g: number; b: number };
+  opacity?: number;
+  rotation?: number;
+  position?: WatermarkPosition;
+  pageRange?: string;
+}

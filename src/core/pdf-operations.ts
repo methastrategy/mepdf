@@ -1,4 +1,4 @@
-import { PDFDocument, degrees, type PDFImage } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, degrees, type PDFImage } from 'pdf-lib';
 import { PDFDocument as PDFDocumentEncrypt } from 'pdf-lib-plus-encrypt';
 import JSZip from 'jszip';
 import type {
@@ -7,6 +7,7 @@ import type {
   ImageToPdfOptions,
   ExtractedImageItem,
   ProgressCallback,
+  WatermarkOptions,
 } from './types';
 import { loadPdfDocument, renderPageToCanvas, extractTextFromDoc, destroyPdfDocument } from './pdf-renderer';
 
@@ -433,5 +434,149 @@ export async function protectPdf(
     userPassword: pwd,
     ownerPassword: ownerPassword && ownerPassword.trim() ? ownerPassword.trim() : pwd,
   });
+  return await doc.save();
+}
+
+/**
+ * Adds custom text or image watermark to PDF pages.
+ */
+export async function addWatermarkToPdf(
+  fileBytes: Uint8Array,
+  options: WatermarkOptions,
+  onProgress?: ProgressCallback
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
+  const total = doc.getPageCount();
+  if (total === 0) {
+    throw new Error('PDF has no pages to watermark');
+  }
+
+  const {
+    type = 'text',
+    text = 'CONFIDENTIAL',
+    imageBytes,
+    imageType = 'png',
+    fontSize = 48,
+    color = { r: 0.5, g: 0.5, b: 0.5 },
+    opacity = 0.3,
+    rotation = 45,
+    position = 'center',
+    pageRange,
+  } = options;
+
+  let targetPageIndices: number[] = [];
+  if (pageRange && pageRange.trim().length > 0) {
+    const groups = parseRangeExpression(pageRange, total);
+    targetPageIndices = groups.flat().map((p) => p - 1);
+  } else {
+    targetPageIndices = Array.from({ length: total }, (_, i) => i);
+  }
+  const pageSet = new Set(targetPageIndices);
+
+  let font: import('pdf-lib').PDFFont | null = null;
+  let embeddedImg: import('pdf-lib').PDFImage | null = null;
+
+  if (type === 'text') {
+    font = await doc.embedFont(StandardFonts.HelveticaBold);
+  } else if (type === 'image' && imageBytes) {
+    embeddedImg = imageType === 'jpeg' || (imageType as string) === 'jpg'
+      ? await doc.embedJpg(imageBytes)
+      : await doc.embedPng(imageBytes);
+  }
+
+  const rad = (rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  for (let i = 0; i < total; i++) {
+    if (!pageSet.has(i)) continue;
+    const page = doc.getPage(i);
+    const { width: pWidth, height: pHeight } = page.getSize();
+
+    let anchorX = pWidth / 2;
+    let anchorY = pHeight / 2;
+
+    switch (position) {
+      case 'top-left':
+        anchorX = pWidth * 0.25;
+        anchorY = pHeight * 0.82;
+        break;
+      case 'top-center':
+        anchorX = pWidth / 2;
+        anchorY = pHeight * 0.85;
+        break;
+      case 'top-right':
+        anchorX = pWidth * 0.75;
+        anchorY = pHeight * 0.82;
+        break;
+      case 'bottom-left':
+        anchorX = pWidth * 0.25;
+        anchorY = pHeight * 0.18;
+        break;
+      case 'bottom-center':
+        anchorX = pWidth / 2;
+        anchorY = pHeight * 0.15;
+        break;
+      case 'bottom-right':
+        anchorX = pWidth * 0.75;
+        anchorY = pHeight * 0.18;
+        break;
+      case 'center':
+      default:
+        anchorX = pWidth / 2;
+        anchorY = pHeight / 2;
+        break;
+    }
+
+    if (type === 'text' && font) {
+      const watermarkText = text.trim() || 'CONFIDENTIAL';
+      const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
+      const textHeight = font.heightAtSize(fontSize);
+
+      const cx = (textWidth / 2) * cos - (textHeight / 2) * sin;
+      const cy = (textWidth / 2) * sin + (textHeight / 2) * cos;
+      const x = anchorX - cx;
+      const y = anchorY - cy;
+
+      page.drawText(watermarkText, {
+        x,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(color.r, color.g, color.b),
+        opacity: Math.max(0.01, Math.min(1, opacity)),
+        rotate: degrees(rotation),
+      });
+    } else if (type === 'image' && embeddedImg) {
+      const maxDim = Math.min(pWidth, pHeight) * 0.45;
+      const imgScale = Math.min(maxDim / embeddedImg.width, maxDim / embeddedImg.height, 1);
+      const w = embeddedImg.width * imgScale;
+      const h = embeddedImg.height * imgScale;
+
+      const cx = (w / 2) * cos - (h / 2) * sin;
+      const cy = (w / 2) * sin + (h / 2) * cos;
+      const x = anchorX - cx;
+      const y = anchorY - cy;
+
+      page.drawImage(embeddedImg, {
+        x,
+        y,
+        width: w,
+        height: h,
+        opacity: Math.max(0.01, Math.min(1, opacity)),
+        rotate: degrees(rotation),
+      });
+    }
+
+    if (onProgress) {
+      onProgress({
+        stage: 'Applying watermark',
+        current: i + 1,
+        total,
+        percent: Math.round(((i + 1) / total) * 100),
+      });
+    }
+  }
+
   return await doc.save();
 }

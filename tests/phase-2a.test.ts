@@ -205,6 +205,7 @@ describe('Phase 2A - URL Hash Tool Router', () => {
     expect(HASH_TO_ROUTE_MAP['#/compress']).toBe('compress');
     expect(HASH_TO_ROUTE_MAP['#/protect']).toBe('protect');
     expect(HASH_TO_ROUTE_MAP['#/encrypt']).toBe('protect');
+    expect(HASH_TO_ROUTE_MAP['#/watermark']).toBe('watermark');
     expect(HASH_TO_ROUTE_MAP['#/pdf-to-images']).toBe('pdf2img');
     expect(HASH_TO_ROUTE_MAP['#/images-to-pdf']).toBe('img2pdf');
     expect(HASH_TO_ROUTE_MAP['#/extract-text']).toBe('extract-text');
@@ -215,6 +216,7 @@ describe('Phase 2A - URL Hash Tool Router', () => {
     expect(ROUTE_TO_HASH_MAP['split']).toBe('#/split');
     expect(ROUTE_TO_HASH_MAP['compress']).toBe('#/compress');
     expect(ROUTE_TO_HASH_MAP['protect']).toBe('#/protect');
+    expect(ROUTE_TO_HASH_MAP['watermark']).toBe('#/watermark');
     expect(ROUTE_TO_HASH_MAP['img2pdf']).toBe('#/images-to-pdf');
     expect(ROUTE_TO_HASH_MAP['pdf2img']).toBe('#/pdf-to-images');
     expect(ROUTE_TO_HASH_MAP['extract-text']).toBe('#/extract-text');

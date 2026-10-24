@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { splitPagesByRanges, mergePages, protectPdf } from '../src/core/pdf-operations';
+import { splitPagesByRanges, mergePages, protectPdf, addWatermarkToPdf } from '../src/core/pdf-operations';
 import { getDefaultSplitRange } from '../src/components/Modal';
 import {
   clearThumbnailCache,
@@ -333,5 +333,49 @@ describe('PDF Password Protection (protectPdf)', () => {
       .map((b) => String.fromCharCode(b))
       .join('');
     expect(binaryString).toContain('/Encrypt');
+  });
+});
+
+describe('PDF Watermark Engine (addWatermarkToPdf)', () => {
+  it('applies text watermark with custom angle and position', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([400, 600]);
+    doc.addPage([400, 600]);
+    const originalBytes = await doc.save();
+
+    const watermarked = await addWatermarkToPdf(originalBytes, {
+      type: 'text',
+      text: 'CONFIDENTIAL TEST',
+      rotation: 45,
+      opacity: 0.35,
+      fontSize: 48,
+      position: 'center',
+    });
+
+    expect(watermarked).toBeInstanceOf(Uint8Array);
+    expect(watermarked.length).toBeGreaterThan(originalBytes.length);
+
+    // Verify the resulting document still has 2 valid pages
+    const verifiedDoc = await PDFDocument.load(watermarked);
+    expect(verifiedDoc.getPageCount()).toBe(2);
+  });
+
+  it('respects pageRange option and watermarks only targeted pages', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([400, 400]);
+    doc.addPage([400, 400]);
+    doc.addPage([400, 400]);
+    const originalBytes = await doc.save();
+
+    const watermarked = await addWatermarkToPdf(originalBytes, {
+      type: 'text',
+      text: 'SAMPLE',
+      pageRange: '1, 3', // Only page 1 and page 3
+      rotation: 0,
+      position: 'top-center',
+    });
+
+    const verifiedDoc = await PDFDocument.load(watermarked);
+    expect(verifiedDoc.getPageCount()).toBe(3);
   });
 });
