@@ -85,6 +85,7 @@ export interface WatermarkOptions {
   opacity?: number;
   rotation?: number;
   position?: WatermarkPosition;
+  repeat?: boolean;
   pageRange?: string;
 }
 

@@ -125,6 +125,10 @@ export class CockpitCanvas {
       formatLabel = 'Letter Landscape';
     }
 
+    const minDim = Math.min(page.width, page.height);
+    const maxDim = Math.max(page.width, page.height);
+    const imgScale = isRotated && minDim > 0 && maxDim > 0 ? (minDim / maxDim).toFixed(3) : '1';
+
     this.container.innerHTML = `
       <div class="cockpit-canvas-inner">
         <!-- Canvas Stage Telemetry Header -->
@@ -172,11 +176,11 @@ export class CockpitCanvas {
         <!-- Canvas Viewport with ambient Neue Klasse glow -->
         <div class="canvas-viewport" id="canvas-viewport-stage">
           <div class="canvas-sheet-wrapper" id="canvas-sheet-wrapper" style="transform: scale(${this.zoom}); transform-origin: center center;">
-            <div class="canvas-document-sheet" id="canvas-document-sheet" style="aspect-ratio: ${page.width} / ${page.height};">
+            <div class="canvas-document-sheet" id="canvas-document-sheet" style="aspect-ratio: ${pageWidth} / ${pageHeight};">
               <img class="canvas-page-render" 
                    src="${page.thumbnailDataUrl}" 
                    alt="Active Page ${page.displayPageNumber}" 
-                   style="transform: rotate(${rotation}deg);" />
+                   style="transform: rotate(${rotation}deg) scale(${imgScale});" />
               
               <!-- Real-time Live Overlays -->
               <div class="canvas-overlay-watermark" id="canvas-overlay-watermark"></div>

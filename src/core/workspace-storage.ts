@@ -30,6 +30,12 @@ export interface StoredDocumentRecord {
   size: number;
   pageCount: number;
   fileBytes: Uint8Array;
+  /**
+   * Stored in local browser IndexedDB solely for client-side session auto-restore.
+   * Never transmitted over the wire or synced to any cloud backend.
+   * NOTE: For high-security environments, encrypt with Web Crypto API (AES-GCM)
+   * using a session-derived key before writing to IndexedDB.
+   */
   password?: string;
 }
 

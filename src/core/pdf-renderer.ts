@@ -2,8 +2,10 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import type { ProgressCallback } from './types';
 
-// Initialize PDF.js worker URL
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Initialize PDF.js worker URL (in browser only, keep Node default in test environments)
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+}
 
 /**
  * High-performance LRU Cache for rendered PDF thumbnails.
@@ -83,8 +85,9 @@ export async function loadPdfDocument(
   data: Uint8Array,
   password?: string
 ): Promise<pdfjsLib.PDFDocumentProxy> {
+  const safeData = data instanceof Uint8Array ? data.slice() : new Uint8Array(data).slice();
   const loadingTask = pdfjsLib.getDocument({
-    data,
+    data: safeData,
     useSystemFonts: true,
     password,
   });

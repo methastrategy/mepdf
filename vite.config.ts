@@ -45,6 +45,10 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,mjs,jpg,jpeg,webp}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -92,9 +96,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'pdf-lib': ['pdf-lib'],
+          'pdf-lib': ['pdf-lib', 'pdf-lib-plus-encrypt'],
           'pdfjs': ['pdfjs-dist'],
           'jszip': ['jszip'],
+          'supabase': ['@supabase/supabase-js'],
+          'lucide': ['lucide'],
         },
       },
     },

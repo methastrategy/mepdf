@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as pdfRenderer from '../src/core/pdf-renderer';
 import { pdfToImages } from '../src/core/pdf-operations';
-import { ModalManager } from '../src/components/Modal';
+import { ModalManager, getDefaultSplitRange } from '../src/components/Modal';
 import { ToastManager } from '../src/components/Toast';
 import { VisualGrid } from '../src/components/VisualGrid';
 import type { PDFPageItem, DocumentMetadata } from '../src/core/types';
@@ -254,6 +254,15 @@ describe('mePDF v2.0.2 Hardening Suite', () => {
       expect(modal.isOpen()).toBe(true);
       modal.close();
       expect(modal.isOpen()).toBe(false);
+
+      expect(getDefaultSplitRange(0)).toBe('1');
+      expect(getDefaultSplitRange(1)).toBe('1');
+      expect(getDefaultSplitRange(2)).toBe('1, 2');
+      expect(getDefaultSplitRange(3)).toBe('1, 2-3');
+      expect(getDefaultSplitRange(4)).toBe('1-2, 3-4');
+      expect(getDefaultSplitRange(10)).toBe('1-5, 6-10');
+      expect(getDefaultSplitRange(-5)).toBe('1');
+      expect(getDefaultSplitRange(NaN)).toBe('1');
     });
 
     it('prevents concurrent double submit on password prompt when Enter is pressed rapidly', async () => {

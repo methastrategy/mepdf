@@ -20,6 +20,7 @@ import {
 } from 'lucide';
 import type { WatermarkPreviewState, PageNumberPreviewState } from './CockpitCanvas';
 import { escapeHtml } from '../utils/file-utils';
+import { toast } from './Toast';
 
 export type InspectorTab = 'tools' | 'watermark' | 'numbers' | 'compress' | 'protect' | 'metadata' | 'convert';
 
@@ -92,6 +93,11 @@ export class CockpitInspector {
   private compQuality = 75;
   private compDpi = 150;
 
+  private metaTitle = '';
+  private metaAuthor = '';
+  private metaSubject = '';
+  private metaKeywords = '';
+
   constructor(container: HTMLElement, events: CockpitInspectorEvents) {
     this.container = container;
     this.events = events;
@@ -102,6 +108,17 @@ export class CockpitInspector {
     this.totalPages = options.totalPages;
     this.render();
   }
+
+  setMetadata(meta: { title?: string; author?: string; subject?: string; keywords?: string }): void {
+    this.metaTitle = meta.title || '';
+    this.metaAuthor = meta.author || '';
+    this.metaSubject = meta.subject || '';
+    this.metaKeywords = meta.keywords || '';
+    if (this.activeTab === 'metadata') {
+      this.render();
+    }
+  }
+
 
   setActiveTab(tab: InspectorTab): void {
     this.activeTab = tab;
@@ -470,22 +487,22 @@ export class CockpitInspector {
 
         <div class="form-group">
           <label class="form-label" for="insp-meta-title">Title</label>
-          <input type="text" id="insp-meta-title" class="input-text" placeholder="Document Title" />
+          <input type="text" id="insp-meta-title" class="input-text" value="${escapeHtml(this.metaTitle)}" placeholder="Document Title" />
         </div>
 
         <div class="form-group">
           <label class="form-label" for="insp-meta-author">Author</label>
-          <input type="text" id="insp-meta-author" class="input-text" placeholder="Author Name" />
+          <input type="text" id="insp-meta-author" class="input-text" value="${escapeHtml(this.metaAuthor)}" placeholder="Author Name" />
         </div>
 
         <div class="form-group">
           <label class="form-label" for="insp-meta-subject">Subject</label>
-          <input type="text" id="insp-meta-subject" class="input-text" placeholder="Subject" />
+          <input type="text" id="insp-meta-subject" class="input-text" value="${escapeHtml(this.metaSubject)}" placeholder="Subject" />
         </div>
 
         <div class="form-group">
           <label class="form-label" for="insp-meta-keywords">Keywords</label>
-          <input type="text" id="insp-meta-keywords" class="input-text" placeholder="tag1, tag2, tag3" />
+          <input type="text" id="insp-meta-keywords" class="input-text" value="${escapeHtml(this.metaKeywords)}" placeholder="tag1, tag2, tag3" />
         </div>
 
         <div class="inspector-divider"></div>
@@ -747,11 +764,11 @@ export class CockpitInspector {
         const pass = (this.container.querySelector('#insp-protect-pass') as HTMLInputElement)?.value;
         const confirm = (this.container.querySelector('#insp-protect-confirm') as HTMLInputElement)?.value;
         if (!pass) {
-          alert('Please enter a password');
+          toast.show('Please enter a password', 'info');
           return;
         }
         if (pass !== confirm) {
-          alert('Passwords do not match');
+          toast.show('Passwords do not match', 'error');
           return;
         }
         this.events.onApplyProtect(pass);
@@ -759,11 +776,21 @@ export class CockpitInspector {
     }
 
     if (this.activeTab === 'metadata') {
+      const titleInput = this.container.querySelector<HTMLInputElement>('#insp-meta-title');
+      const authorInput = this.container.querySelector<HTMLInputElement>('#insp-meta-author');
+      const subjectInput = this.container.querySelector<HTMLInputElement>('#insp-meta-subject');
+      const keywordsInput = this.container.querySelector<HTMLInputElement>('#insp-meta-keywords');
+
+      titleInput?.addEventListener('input', () => { this.metaTitle = titleInput.value; });
+      authorInput?.addEventListener('input', () => { this.metaAuthor = authorInput.value; });
+      subjectInput?.addEventListener('input', () => { this.metaSubject = subjectInput.value; });
+      keywordsInput?.addEventListener('input', () => { this.metaKeywords = keywordsInput.value; });
+
       this.container.querySelector('#insp-meta-apply-btn')?.addEventListener('click', () => {
-        const title = (this.container.querySelector('#insp-meta-title') as HTMLInputElement)?.value || '';
-        const author = (this.container.querySelector('#insp-meta-author') as HTMLInputElement)?.value || '';
-        const subject = (this.container.querySelector('#insp-meta-subject') as HTMLInputElement)?.value || '';
-        const keywords = (this.container.querySelector('#insp-meta-keywords') as HTMLInputElement)?.value || '';
+        const title = titleInput?.value || this.metaTitle || '';
+        const author = authorInput?.value || this.metaAuthor || '';
+        const subject = subjectInput?.value || this.metaSubject || '';
+        const keywords = keywordsInput?.value || this.metaKeywords || '';
         this.events.onApplyMetadata({ title, author, subject, keywords });
       });
 

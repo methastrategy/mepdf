@@ -9,7 +9,7 @@ import {
   Cloud,
 } from 'lucide';
 import { authService, FREE_STORAGE_LIMIT } from '../cloud/auth-service';
-import { formatBytes } from '../utils/file-utils';
+import { formatBytes, escapeHtml } from '../utils/file-utils';
 import { t } from '../core/i18n';
 import { toast } from './Toast';
 import { authModal } from './AuthModal';
@@ -99,6 +99,11 @@ export class UserAccountMenu {
     } else {
       // Authenticated state: User avatar pill + tier tag + dropdown menu
       const initials = this.getInitials(user.fullName || user.email);
+      const safeAvatarUrl =
+        user.avatarUrl && /^https?:\/\//i.test(user.avatarUrl) ? escapeHtml(user.avatarUrl) : '';
+      const safeInitials = escapeHtml(initials);
+      const safeDisplayName = escapeHtml(user.fullName || user.email.split('@')[0] || '');
+      const safeEmail = escapeHtml(user.email || '');
       const isPro = user.tier === 'pro' || user.tier === 'enterprise';
       const tierBadge = isPro ? t('accountTierPro') : t('accountTierFree');
       const tierClass = isPro ? 'tier-pro' : 'tier-free';
@@ -114,9 +119,9 @@ export class UserAccountMenu {
           <button class="account-trigger-btn" id="account-trigger-btn" aria-haspopup="true" aria-expanded="${this.isDropdownOpen}">
             <div class="account-avatar">
               ${
-                user.avatarUrl
-                  ? `<img src="${user.avatarUrl}" alt="Avatar" class="avatar-img" />`
-                  : `<span class="avatar-initials">${initials}</span>`
+                safeAvatarUrl
+                  ? `<img src="${safeAvatarUrl}" alt="Avatar" class="avatar-img" />`
+                  : `<span class="avatar-initials">${safeInitials}</span>`
               }
             </div>
             <span class="account-tier-pill ${tierClass}">${tierBadge}</span>
@@ -126,8 +131,8 @@ export class UserAccountMenu {
           <div class="account-dropdown-menu ${this.isDropdownOpen ? 'active' : ''}" id="account-dropdown-menu">
             <div class="dropdown-header">
               <div class="dropdown-user-info">
-                <span class="dropdown-user-name">${user.fullName || user.email.split('@')[0]}</span>
-                <span class="dropdown-user-email">${user.email}</span>
+                <span class="dropdown-user-name">${safeDisplayName}</span>
+                <span class="dropdown-user-email">${safeEmail}</span>
               </div>
               <span class="account-tier-pill ${tierClass}">${tierBadge}</span>
             </div>

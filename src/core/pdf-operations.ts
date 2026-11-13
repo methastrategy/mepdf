@@ -12,6 +12,8 @@ import type {
   PDFInfoMetadata,
 } from './types';
 import { loadPdfDocument, renderPageToCanvas, extractTextFromDoc, destroyPdfDocument } from './pdf-renderer';
+import { canvasToBlob } from '../utils/file-utils';
+
 
 /**
  * Merges a list of PDFPageItems (in their current display order and rotations)
@@ -151,18 +153,24 @@ export function parseRangeExpression(expr: string, maxPages: number): number[][]
 }
 
 /**
- * Helper to embed an image into a PDFDocument, with canvas fallback for unsupported image formats.
+ * Helper to embed an image into a PDFDocument safely from byte array,
+ * with canvas fallback for unsupported image formats (interlaced PNG, palette, WebP, etc.)
+ * and secondary JPEG fallback if UPNG parser fails on canvas PNG output.
  */
-async function embedImageSafely(doc: PDFDocument, file: File): Promise<PDFImage> {
-  const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-  const name = (file.name || '').toLowerCase();
+export async function embedImageBytesSafely(
+  doc: PDFDocument,
+  bytes: Uint8Array,
+  typeOrNameHint?: string
+): Promise<PDFImage> {
+  const hint = (typeOrNameHint || '').toLowerCase();
   const isJpg =
-    file.type === 'image/jpeg' ||
-    file.type === 'image/jpg' ||
-    file.type === 'image/pjpeg' ||
-    /\.(jpe?g)$/i.test(name);
-  const isPng = file.type === 'image/png' || /\.png$/i.test(name);
+    hint.includes('jpeg') ||
+    hint.includes('jpg') ||
+    hint.includes('pjpeg') ||
+    (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff);
+  const isPng =
+    hint.includes('png') ||
+    (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47);
 
   if (isJpg) {
     try {
@@ -174,36 +182,36 @@ async function embedImageSafely(doc: PDFDocument, file: File): Promise<PDFImage>
     try {
       return await doc.embedPng(bytes);
     } catch {
-      // Fallback via canvas if non-standard PNG
+      // Fallback via canvas if non-standard/interlaced PNG
     }
   }
 
-  // Universal canvas fallback for WebP, GIF, SVG, BMP, AVIF, etc.
-  return await embedViaCanvas(doc, file);
+  // Universal canvas fallback for WebP, GIF, SVG, BMP, AVIF, or non-standard PNG/JPG
+  const mimeType = isJpg ? 'image/jpeg' : isPng ? 'image/png' : 'image/png';
+  const blob = new Blob([bytes as unknown as BlobPart], { type: mimeType });
+  return await embedBlobViaCanvas(doc, blob);
 }
 
-async function embedViaCanvas(doc: PDFDocument, file: File): Promise<PDFImage> {
+async function embedBlobViaCanvas(doc: PDFDocument, blob: Blob): Promise<PDFImage> {
   let imgBitmap: ImageBitmap | null = null;
   let canvas: HTMLCanvasElement | null = null;
 
   if (typeof createImageBitmap === 'function') {
     try {
-      imgBitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      imgBitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
       canvas = document.createElement('canvas');
-      canvas.width = imgBitmap.width;
-      canvas.height = imgBitmap.height;
+      canvas.width = Math.max(1, imgBitmap.width);
+      canvas.height = Math.max(1, imgBitmap.height);
       const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not create offscreen canvas');
-      ctx.drawImage(imgBitmap, 0, 0);
+      if (ctx) ctx.drawImage(imgBitmap, 0, 0);
     } catch {
       try {
-        imgBitmap = await createImageBitmap(file);
+        imgBitmap = await createImageBitmap(blob);
         canvas = document.createElement('canvas');
-        canvas.width = imgBitmap.width;
-        canvas.height = imgBitmap.height;
+        canvas.width = Math.max(1, imgBitmap.width);
+        canvas.height = Math.max(1, imgBitmap.height);
         const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('Could not create offscreen canvas');
-        ctx.drawImage(imgBitmap, 0, 0);
+        if (ctx) ctx.drawImage(imgBitmap, 0, 0);
       } catch {
         canvas = null;
       }
@@ -212,14 +220,14 @@ async function embedViaCanvas(doc: PDFDocument, file: File): Promise<PDFImage> {
     }
   }
 
-  if (!canvas) {
+  if (!canvas && typeof Image !== 'undefined' && typeof URL !== 'undefined') {
     canvas = await new Promise<HTMLCanvasElement>((resolve, reject) => {
       const img = new Image();
-      const url = URL.createObjectURL(file);
+      const url = URL.createObjectURL(blob);
       img.onload = () => {
         const c = document.createElement('canvas');
-        c.width = img.naturalWidth || img.width;
-        c.height = img.naturalHeight || img.height;
+        c.width = Math.max(1, img.naturalWidth || img.width);
+        c.height = Math.max(1, img.naturalHeight || img.height);
         const ctx = c.getContext('2d');
         if (ctx) ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
@@ -227,21 +235,46 @@ async function embedViaCanvas(doc: PDFDocument, file: File): Promise<PDFImage> {
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        reject(new Error(`Failed to load image: ${file.name}`));
+        reject(new Error('Failed to load image into canvas'));
       };
       img.src = url;
     });
   }
 
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas!.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas conversion failed'))), 'image/png');
-  });
+  if (!canvas) {
+    throw new Error('Canvas conversion unavailable in current environment');
+  }
 
-  canvas.width = 0;
-  canvas.height = 0;
+  try {
+    const pngBlob = await canvasToBlob(canvas, 'image/png');
+    const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
+    return await doc.embedPng(pngBytes);
+  } catch {
+    // If UPNG fails on canvas PNG, composite with white background and fallback to JPEG (bulletproof in pdf-lib)
+    const whiteCanvas = document.createElement('canvas');
+    whiteCanvas.width = canvas.width;
+    whiteCanvas.height = canvas.height;
+    const whiteCtx = whiteCanvas.getContext('2d');
+    if (whiteCtx) {
+      whiteCtx.fillStyle = '#ffffff';
+      whiteCtx.fillRect(0, 0, whiteCanvas.width, whiteCanvas.height);
+      whiteCtx.drawImage(canvas, 0, 0);
+    }
+    const jpgBlob = await canvasToBlob(whiteCanvas, 'image/jpeg', 0.95);
+    const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer());
+    whiteCanvas.width = 0;
+    whiteCanvas.height = 0;
+    return await doc.embedJpg(jpgBytes);
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
 
-  const pngBytes = new Uint8Array(await blob.arrayBuffer());
-  return await doc.embedPng(pngBytes);
+async function embedImageSafely(doc: PDFDocument, file: File): Promise<PDFImage> {
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  return await embedImageBytesSafely(doc, bytes, file.type || file.name);
 }
 
 /**
@@ -265,6 +298,7 @@ export async function imagesToPdf(
 
     const img = await embedImageSafely(pdfDoc, file);
     const { width: imgW, height: imgH } = img;
+    if (!imgW || !imgH || imgW <= 0 || imgH <= 0) continue;
 
     if (options.pageSize === 'fit') {
       // Exactly fit page to image dimensions
@@ -312,6 +346,10 @@ export async function imagesToPdf(
     }
   }
 
+  if (pdfDoc.getPageCount() === 0) {
+    throw new Error('No valid pages could be generated from the selected images.');
+  }
+
   return await pdfDoc.save();
 }
 
@@ -336,13 +374,7 @@ export async function pdfToImages(
       const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
       const quality = format === 'jpeg' ? 0.9 : undefined;
 
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error('Failed to create page blob'))),
-          mimeType,
-          quality
-        );
-      });
+      const blob = await canvasToBlob(canvas, mimeType, quality);
 
       const ext = format === 'jpeg' ? 'jpg' : 'png';
       const numStr = String(i).padStart(3, '0');
@@ -463,6 +495,7 @@ export async function addWatermarkToPdf(
     opacity = 0.3,
     rotation = 45,
     position = 'center',
+    repeat = false,
     pageRange,
   } = options;
 
@@ -481,9 +514,7 @@ export async function addWatermarkToPdf(
   if (type === 'text') {
     font = await doc.embedFont(StandardFonts.HelveticaBold);
   } else if (type === 'image' && imageBytes) {
-    embeddedImg = imageType === 'jpeg' || (imageType as string) === 'jpg'
-      ? await doc.embedJpg(imageBytes)
-      : await doc.embedPng(imageBytes);
+    embeddedImg = await embedImageBytesSafely(doc, imageBytes, imageType);
   }
 
   const rad = (rotation * Math.PI) / 180;
@@ -495,79 +526,95 @@ export async function addWatermarkToPdf(
     const page = doc.getPage(i);
     const { width: pWidth, height: pHeight } = page.getSize();
 
-    let anchorX = pWidth / 2;
-    let anchorY = pHeight / 2;
+    const anchors: { x: number; y: number }[] = [];
+    if (repeat) {
+      const xs = [pWidth * 0.2, pWidth * 0.5, pWidth * 0.8];
+      const ys = [pHeight * 0.2, pHeight * 0.5, pHeight * 0.8];
+      for (const y of ys) {
+        for (const x of xs) {
+          anchors.push({ x, y });
+        }
+      }
+    } else {
+      let anchorX = pWidth / 2;
+      let anchorY = pHeight / 2;
 
-    switch (position) {
-      case 'top-left':
-        anchorX = pWidth * 0.25;
-        anchorY = pHeight * 0.82;
-        break;
-      case 'top-center':
-        anchorX = pWidth / 2;
-        anchorY = pHeight * 0.85;
-        break;
-      case 'top-right':
-        anchorX = pWidth * 0.75;
-        anchorY = pHeight * 0.82;
-        break;
-      case 'bottom-left':
-        anchorX = pWidth * 0.25;
-        anchorY = pHeight * 0.18;
-        break;
-      case 'bottom-center':
-        anchorX = pWidth / 2;
-        anchorY = pHeight * 0.15;
-        break;
-      case 'bottom-right':
-        anchorX = pWidth * 0.75;
-        anchorY = pHeight * 0.18;
-        break;
-      case 'center':
-      default:
-        anchorX = pWidth / 2;
-        anchorY = pHeight / 2;
-        break;
+      switch (position) {
+        case 'top-left':
+          anchorX = pWidth * 0.25;
+          anchorY = pHeight * 0.82;
+          break;
+        case 'top-center':
+          anchorX = pWidth / 2;
+          anchorY = pHeight * 0.85;
+          break;
+        case 'top-right':
+          anchorX = pWidth * 0.75;
+          anchorY = pHeight * 0.82;
+          break;
+        case 'bottom-left':
+          anchorX = pWidth * 0.25;
+          anchorY = pHeight * 0.18;
+          break;
+        case 'bottom-center':
+          anchorX = pWidth / 2;
+          anchorY = pHeight * 0.15;
+          break;
+        case 'bottom-right':
+          anchorX = pWidth * 0.75;
+          anchorY = pHeight * 0.18;
+          break;
+        case 'center':
+        default:
+          anchorX = pWidth / 2;
+          anchorY = pHeight / 2;
+          break;
+      }
+      anchors.push({ x: anchorX, y: anchorY });
     }
 
-    if (type === 'text' && font) {
-      const watermarkText = text.trim() || 'CONFIDENTIAL';
-      const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
-      const textHeight = font.heightAtSize(fontSize);
+    const effectiveFontSize = repeat ? Math.max(14, fontSize * 0.55) : fontSize;
 
-      const cx = (textWidth / 2) * cos - (textHeight / 2) * sin;
-      const cy = (textWidth / 2) * sin + (textHeight / 2) * cos;
-      const x = anchorX - cx;
-      const y = anchorY - cy;
+    for (const anchor of anchors) {
+      if (type === 'text' && font) {
+        const watermarkText = text.trim() || 'CONFIDENTIAL';
+        const textWidth = font.widthOfTextAtSize(watermarkText, effectiveFontSize);
+        const textHeight = font.heightAtSize(effectiveFontSize);
 
-      page.drawText(watermarkText, {
-        x,
-        y,
-        size: fontSize,
-        font,
-        color: rgb(color.r, color.g, color.b),
-        opacity: Math.max(0.01, Math.min(1, opacity)),
-        rotate: degrees(rotation),
-      });
-    } else if (type === 'image' && embeddedImg) {
-      const maxDim = Math.min(pWidth, pHeight) * 0.45;
-      const imgScale = Math.min(maxDim / embeddedImg.width, maxDim / embeddedImg.height, 1);
-      const w = embeddedImg.width * imgScale;
-      const h = embeddedImg.height * imgScale;
+        const cx = (textWidth / 2) * cos - (textHeight / 2) * sin;
+        const cy = (textWidth / 2) * sin + (textHeight / 2) * cos;
+        const x = anchor.x - cx;
+        const y = anchor.y - cy;
 
-      const cx = (w / 2) * cos - (h / 2) * sin;
-      const cy = (w / 2) * sin + (h / 2) * cos;
-      const x = anchorX - cx;
-      const y = anchorY - cy;
+        page.drawText(watermarkText, {
+          x,
+          y,
+          size: effectiveFontSize,
+          font,
+          color: rgb(color.r, color.g, color.b),
+          opacity: Math.max(0.01, Math.min(1, opacity)),
+          rotate: degrees(rotation),
+        });
+      } else if (type === 'image' && embeddedImg) {
+        const maxDim = Math.min(pWidth, pHeight) * (repeat ? 0.22 : 0.45);
+        const imgScale = Math.min(maxDim / embeddedImg.width, maxDim / embeddedImg.height, 1);
+        const w = embeddedImg.width * imgScale;
+        const h = embeddedImg.height * imgScale;
 
-      page.drawImage(embeddedImg, {
-        x,
-        y,
-        width: w,
-        height: h,
-        opacity: Math.max(0.01, Math.min(1, opacity)),
-        rotate: degrees(rotation),
-      });
+        const cx = (w / 2) * cos - (h / 2) * sin;
+        const cy = (w / 2) * sin + (h / 2) * cos;
+        const x = anchor.x - cx;
+        const y = anchor.y - cy;
+
+        page.drawImage(embeddedImg, {
+          x,
+          y,
+          width: w,
+          height: h,
+          opacity: Math.max(0.01, Math.min(1, opacity)),
+          rotate: degrees(rotation),
+        });
+      }
     }
 
     if (onProgress) {
@@ -630,7 +677,7 @@ export async function addPageNumbersToPdf(
         text = `${currentNumber}`;
         break;
       case 'n_slash_total':
-        text = `${currentNumber}/${total}`;
+        text = `${currentNumber} / ${total}`;
         break;
       case 'custom':
         text = (customTemplate || 'Page {n} of {total}')
@@ -733,3 +780,5 @@ export async function updatePdfMetadata(
 
   return await doc.save();
 }
+
+export { addWatermarkToPdf as watermarkPdf };

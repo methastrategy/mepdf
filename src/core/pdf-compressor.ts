@@ -1,6 +1,8 @@
 import { PDFDocument } from 'pdf-lib';
 import type { CompressionOptions, CompressionResult, ProgressCallback } from './types';
 import { loadPdfDocument, renderPageToCanvas, destroyPdfDocument } from './pdf-renderer';
+import { canvasToBlob } from '../utils/file-utils';
+
 
 export const COMPRESSION_PRESETS: Record<string, CompressionOptions> = {
   screen: {
@@ -123,13 +125,8 @@ export async function compressPdfScanned(
       // renderPageToCanvas computes intrinsic rotation automatically
       const canvas = await renderPageToCanvas(pdfDoc, i, effectiveScale);
 
-      const jpegBlob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error('Failed to compress canvas to JPEG'))),
-          'image/jpeg',
-          quality
-        );
-      });
+      const jpegBlob = await canvasToBlob(canvas, 'image/jpeg', quality);
+
 
       const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
       const embeddedImg = await targetDoc.embedJpg(jpegBytes);

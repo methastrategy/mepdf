@@ -244,18 +244,30 @@ async function executeWatermark(
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
   const total = doc.getPageCount();
-  const font = await doc.embedFont(StandardFonts.HelveticaBold);
 
   const {
     type = 'text',
     text = 'CONFIDENTIAL',
+    imageBytes,
+    imageType = 'png',
     fontSize = 48,
     color = { r: 0.8, g: 0.1, b: 0.1 },
     opacity = 0.3,
     rotation = 45,
     position = 'center',
+    repeat = false,
     pageRange = 'all',
   } = options;
+
+  let font: import('pdf-lib').PDFFont | null = null;
+  let embeddedImg: import('pdf-lib').PDFImage | null = null;
+
+  if (type === 'text') {
+    font = await doc.embedFont(StandardFonts.HelveticaBold);
+  } else if (type === 'image' && imageBytes) {
+    const isJpg = imageType === 'jpeg' || (imageType as string) === 'jpg';
+    embeddedImg = isJpg ? await doc.embedJpg(imageBytes) : await doc.embedPng(imageBytes);
+  }
 
   let targetIndices: number[] = [];
   if (pageRange === 'all' || !pageRange.trim()) {
@@ -276,60 +288,95 @@ async function executeWatermark(
     const page = doc.getPage(i);
     const { width: pWidth, height: pHeight } = page.getSize();
 
-    let anchorX = pWidth / 2;
-    let anchorY = pHeight / 2;
+    const anchors: { x: number; y: number }[] = [];
+    if (repeat) {
+      const xs = [pWidth * 0.2, pWidth * 0.5, pWidth * 0.8];
+      const ys = [pHeight * 0.2, pHeight * 0.5, pHeight * 0.8];
+      for (const y of ys) {
+        for (const x of xs) {
+          anchors.push({ x, y });
+        }
+      }
+    } else {
+      let anchorX = pWidth / 2;
+      let anchorY = pHeight / 2;
 
-    switch (position) {
-      case 'top-left':
-        anchorX = pWidth * 0.25;
-        anchorY = pHeight * 0.82;
-        break;
-      case 'top-center':
-        anchorX = pWidth / 2;
-        anchorY = pHeight * 0.85;
-        break;
-      case 'top-right':
-        anchorX = pWidth * 0.75;
-        anchorY = pHeight * 0.82;
-        break;
-      case 'bottom-left':
-        anchorX = pWidth * 0.25;
-        anchorY = pHeight * 0.18;
-        break;
-      case 'bottom-center':
-        anchorX = pWidth / 2;
-        anchorY = pHeight * 0.15;
-        break;
-      case 'bottom-right':
-        anchorX = pWidth * 0.75;
-        anchorY = pHeight * 0.18;
-        break;
-      case 'center':
-      default:
-        anchorX = pWidth / 2;
-        anchorY = pHeight / 2;
-        break;
+      switch (position) {
+        case 'top-left':
+          anchorX = pWidth * 0.25;
+          anchorY = pHeight * 0.82;
+          break;
+        case 'top-center':
+          anchorX = pWidth / 2;
+          anchorY = pHeight * 0.85;
+          break;
+        case 'top-right':
+          anchorX = pWidth * 0.75;
+          anchorY = pHeight * 0.82;
+          break;
+        case 'bottom-left':
+          anchorX = pWidth * 0.25;
+          anchorY = pHeight * 0.18;
+          break;
+        case 'bottom-center':
+          anchorX = pWidth / 2;
+          anchorY = pHeight * 0.15;
+          break;
+        case 'bottom-right':
+          anchorX = pWidth * 0.75;
+          anchorY = pHeight * 0.18;
+          break;
+        case 'center':
+        default:
+          anchorX = pWidth / 2;
+          anchorY = pHeight / 2;
+          break;
+      }
+      anchors.push({ x: anchorX, y: anchorY });
     }
 
-    if (type === 'text') {
-      const watermarkText = text.trim() || 'CONFIDENTIAL';
-      const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
-      const textHeight = font.heightAtSize(fontSize);
+    const effectiveFontSize = repeat ? Math.max(14, fontSize * 0.55) : fontSize;
 
-      const cx = (textWidth / 2) * cos - (textHeight / 2) * sin;
-      const cy = (textWidth / 2) * sin + (textHeight / 2) * cos;
-      const x = anchorX - cx;
-      const y = anchorY - cy;
+    for (const anchor of anchors) {
+      if (type === 'text' && font) {
+        const watermarkText = text.trim() || 'CONFIDENTIAL';
+        const textWidth = font.widthOfTextAtSize(watermarkText, effectiveFontSize);
+        const textHeight = font.heightAtSize(effectiveFontSize);
 
-      page.drawText(watermarkText, {
-        x,
-        y,
-        size: fontSize,
-        font,
-        color: rgb(color.r, color.g, color.b),
-        opacity: Math.max(0.01, Math.min(1, opacity)),
-        rotate: degrees(rotation),
-      });
+        const cx = (textWidth / 2) * cos - (textHeight / 2) * sin;
+        const cy = (textWidth / 2) * sin + (textHeight / 2) * cos;
+        const x = anchor.x - cx;
+        const y = anchor.y - cy;
+
+        page.drawText(watermarkText, {
+          x,
+          y,
+          size: effectiveFontSize,
+          font,
+          color: rgb(color.r, color.g, color.b),
+          opacity: Math.max(0.01, Math.min(1, opacity)),
+          rotate: degrees(rotation),
+        });
+      } else if (type === 'image' && embeddedImg) {
+        const maxDim = Math.min(pWidth, pHeight) * (repeat ? 0.22 : 0.45);
+        const imgScale = Math.min(maxDim / embeddedImg.width, maxDim / embeddedImg.height, 1);
+        const w = embeddedImg.width * imgScale;
+        const h = embeddedImg.height * imgScale;
+
+        const cx = (w / 2) * cos - (h / 2) * sin;
+        const cy = (w / 2) * sin + (h / 2) * cos;
+        const x = anchor.x - cx;
+        const y = anchor.y - cy;
+
+        page.drawImage(embeddedImg, {
+          x,
+          y,
+          width: w,
+          height: h,
+          opacity: Math.max(0.01, Math.min(1, opacity)),
+          rotate: degrees(rotation),
+        });
+      }
     }
 
     postProgress('Applying watermark in worker', i + 1, total, Math.round(((i + 1) / total) * 100));

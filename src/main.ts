@@ -34,7 +34,8 @@ import {
   clearThumbnailCache,
   removeDocThumbnails,
 } from './core/pdf-renderer';
-import { imagesToPdf } from './core/pdf-operations';
+import { imagesToPdf, getPDFMetadata } from './core/pdf-operations';
+
 import { compressPdf } from './core/pdf-compressor';
 import { pdfWorker } from './core/worker-client';
 import { readFileAsUint8Array, downloadBytes } from './utils/file-utils';
@@ -614,17 +615,21 @@ class MePdfApp {
 
       // 1. Process image files directly into PDF pages
       if (imageFiles.length > 0) {
-        progressOverlay.update({
-          stage: 'Converting images to pages',
-          current: 0,
-          total: imageFiles.length,
-          percent: 10,
-        });
-        const convertedBytes = await imagesToPdf(imageFiles, { pageSize: 'A4' });
-        const virtualFile = new File([convertedBytes as unknown as BlobPart], 'Images_Combined.pdf', {
-          type: 'application/pdf',
-        });
-        pdfFiles.push(virtualFile);
+        for (let imgIdx = 0; imgIdx < imageFiles.length; imgIdx++) {
+          const imgFile = imageFiles[imgIdx]!;
+          progressOverlay.update({
+            stage: 'Converting images to pages',
+            current: imgIdx + 1,
+            total: imageFiles.length,
+            percent: Math.round(((imgIdx + 1) / imageFiles.length) * 100),
+          });
+          const convertedBytes = await imagesToPdf([imgFile], { pageSize: 'A4' });
+          const virtualName = `${imgFile.name.replace(/\.[^.]+$/, '')}.pdf`;
+          const virtualFile = new File([convertedBytes as unknown as BlobPart], virtualName, {
+            type: 'application/pdf',
+          });
+          pdfFiles.push(virtualFile);
+        }
       }
 
       // 2. Process each PDF file
@@ -1066,7 +1071,10 @@ class MePdfApp {
         const docId = distinctDocIds.values().next().value;
         const doc = docId ? this.documents.get(docId) : null;
         if (doc?.filename) {
-          exportFilename = `${doc.filename.replace(/\.pdf$/i, '')}_edited.pdf`;
+          const cleanName = doc.filename
+            .replace(/\.pdf$/i, '')
+            .replace(/\.(jpe?g|png|webp|avif|bmp|gif)$/i, '');
+          exportFilename = `${cleanName}_edited.pdf`;
         }
       }
 
@@ -1171,6 +1179,7 @@ class MePdfApp {
           color: hexToRgb(options.color),
           rotation: options.rotation,
           position: 'center',
+          repeat: options.repeat,
         },
         (info) => progressOverlay.update(info)
       );
@@ -1345,6 +1354,17 @@ class MePdfApp {
     }
   }
 
+  private async syncMetadataToInspector(): Promise<void> {
+    if (!this.cockpitInspector || this.pages.length === 0) return;
+    try {
+      const { docBytes } = await this.getActiveDocumentBytes();
+      const meta = await getPDFMetadata(docBytes);
+      this.cockpitInspector.setMetadata(meta);
+    } catch (err) {
+      console.warn('Failed to read metadata for inspector:', err);
+    }
+  }
+
   // ==========================================
   // ACTIVE DOCUMENT RESOLVER
   // ==========================================
@@ -1424,12 +1444,17 @@ class MePdfApp {
       modal.setOnClose(() => this.resetNavTabToStudio());
       modal.showImagesToPdfModal(async (imageFiles, pageSize) => {
         progressOverlay.show('Converting images to PDF...');
-        const convertedBytes = await imagesToPdf(imageFiles, { pageSize });
+        const virtualFiles: File[] = [];
+        for (const imgFile of imageFiles) {
+          const convertedBytes = await imagesToPdf([imgFile], { pageSize });
+          const virtualName = `${imgFile.name.replace(/\.[^.]+$/, '')}.pdf`;
+          const virtualFile = new File([convertedBytes as unknown as BlobPart], virtualName, {
+            type: 'application/pdf',
+          });
+          virtualFiles.push(virtualFile);
+        }
         progressOverlay.hide();
-        const virtualFile = new File([convertedBytes as unknown as BlobPart], 'Images_Studio.pdf', {
-          type: 'application/pdf',
-        });
-        await this.handleFiles([virtualFile]);
+        await this.handleFiles(virtualFiles);
         toast.show(`Added ${imageFiles.length} images to Studio Cockpit!`, 'success');
       });
       return;
@@ -1446,6 +1471,9 @@ class MePdfApp {
       setHashRoute(tab as ToolRoute);
       this.activeViewMode = 'cockpit';
       this.cockpitInspector?.setActiveTab(tab as InspectorTab);
+      if (tab === 'metadata') {
+        void this.syncMetadataToInspector();
+      }
       this.updateUI();
       return;
     }
