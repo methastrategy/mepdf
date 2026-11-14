@@ -109,7 +109,7 @@ export class SaveToCloudModal {
         <div class="modal-card save-cloud-card" role="dialog" aria-modal="true" aria-labelledby="save-cloud-title">
           <div class="modal-header">
             <h3 class="modal-title" id="save-cloud-title">${t('saveCloudTitle')}</h3>
-            <button class="btn btn-ghost btn-icon-only" id="save-cloud-close-btn" title="Close">
+            <button class="btn btn-ghost btn-icon-only modal-close-pill" id="save-cloud-close-btn" title="Close">
               <i data-lucide="x" style="width: 18px; height: 18px;"></i>
             </button>
           </div>
@@ -162,7 +162,7 @@ export class SaveToCloudModal {
             <h3 class="modal-title" id="save-cloud-title">${t('saveCloudTitle')}</h3>
             <p class="modal-subtitle">${t('saveCloudDesc')}</p>
           </div>
-          <button class="btn btn-ghost btn-icon-only" id="save-cloud-close-btn" title="Close">
+          <button class="btn btn-ghost btn-icon-only modal-close-pill" id="save-cloud-close-btn" title="Close">
             <i data-lucide="x" style="width: 18px; height: 18px;"></i>
           </button>
         </div>

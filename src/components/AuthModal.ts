@@ -1,4 +1,19 @@
-import { createIcons, X, Mail, Lock, User, ArrowRight, Sparkles, CheckCircle2, AlertCircle } from 'lucide';
+import {
+  createIcons,
+  X,
+  Mail,
+  Lock,
+  User,
+  ArrowRight,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  LogIn,
+  UserPlus,
+  ShieldCheck,
+} from 'lucide';
 import { authService, type UserProfile } from '../cloud/auth-service';
 import { t } from '../core/i18n';
 import { toast } from './Toast';
@@ -88,21 +103,28 @@ export class AuthModal {
     this.overlay.innerHTML = `
       <div class="modal-card auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
         <div class="modal-header auth-modal-header">
+          <div class="auth-header-top">
+            <div class="auth-brand-badge">
+              <i data-lucide="shield-check" style="width: 22px; height: 22px; color: var(--primary);"></i>
+            </div>
+            <button class="btn btn-ghost btn-icon-only modal-close-pill" id="auth-close-btn" title="Close" aria-label="Close modal">
+              <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+          </div>
           <div class="auth-header-title-wrap">
             <h3 class="modal-title auth-title" id="auth-modal-title">${title}</h3>
             <p class="auth-subtitle">${t('authSignInPrompt')}</p>
           </div>
-          <button class="btn btn-ghost btn-icon-only" id="auth-close-btn" title="Close" aria-label="Close modal">
-            <i data-lucide="x" style="width: 18px; height: 18px;"></i>
-          </button>
         </div>
 
-        <div class="auth-tabs-nav">
-          <button class="auth-tab-btn ${isSignIn ? 'active' : ''}" id="auth-tab-signin">
-            ${t('authTabSignIn')}
+        <div class="auth-segmented-tabs" role="tablist" aria-label="Authentication mode">
+          <button class="auth-tab-btn ${isSignIn ? 'active' : ''}" id="auth-tab-signin" type="button" role="tab" aria-selected="${isSignIn}" aria-controls="auth-main-form">
+            <i data-lucide="log-in" style="width: 14px; height: 14px;"></i>
+            <span>${t('authTabSignIn')}</span>
           </button>
-          <button class="auth-tab-btn ${!isSignIn ? 'active' : ''}" id="auth-tab-signup">
-            ${t('authTabSignUp')}
+          <button class="auth-tab-btn ${!isSignIn ? 'active' : ''}" id="auth-tab-signup" type="button" role="tab" aria-selected="${!isSignIn}" aria-controls="auth-main-form">
+            <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
+            <span>${t('authTabSignUp')}</span>
           </button>
         </div>
 
@@ -110,7 +132,7 @@ export class AuthModal {
           <div id="auth-alert-box" class="auth-alert" style="display: none;"></div>
 
           <!-- Google Social Sign In -->
-          <button class="btn btn-google" id="auth-google-btn">
+          <button class="btn btn-google" id="auth-google-btn" type="button">
             <svg class="google-icon" viewBox="0 0 24 24" width="18" height="18">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -174,6 +196,9 @@ export class AuthModal {
                   minlength="6"
                   autocomplete="${isSignIn ? 'current-password' : 'new-password'}"
                 />
+                <button type="button" class="auth-pwd-toggle-btn" id="auth-pwd-toggle-btn" title="Toggle password visibility" aria-label="Toggle password visibility" aria-pressed="false">
+                  <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                </button>
               </div>
             </div>
 
@@ -188,7 +213,7 @@ export class AuthModal {
           <!-- Passwordless Magic Link Alternative -->
           <div class="auth-magic-box">
             <div class="magic-box-header">
-              <i data-lucide="sparkles" style="width: 15px; height: 15px; color: var(--primary);"></i>
+              <i data-lucide="sparkles" style="width: 16px; height: 16px; color: var(--accent-cyan);"></i>
               <span class="magic-box-title">Magic Link (Passwordless)</span>
             </div>
             <p class="magic-box-desc">${t('authMagicLinkDesc')}</p>
@@ -222,6 +247,11 @@ export class AuthModal {
         Sparkles,
         CheckCircle2,
         AlertCircle,
+        Eye,
+        EyeOff,
+        LogIn,
+        UserPlus,
+        ShieldCheck,
       },
       nameAttr: 'data-lucide',
     });
@@ -233,6 +263,18 @@ export class AuthModal {
     // Close button
     const closeBtn = this.overlay.querySelector('#auth-close-btn');
     closeBtn?.addEventListener('click', () => this.close());
+
+    // Password visibility toggle
+    const togglePwdBtn = this.overlay.querySelector('#auth-pwd-toggle-btn');
+    togglePwdBtn?.addEventListener('click', () => {
+      const pwdInput = this.overlay?.querySelector<HTMLInputElement>('#auth-password-input');
+      if (!pwdInput) return;
+      const isPassword = pwdInput.type === 'password';
+      pwdInput.type = isPassword ? 'text' : 'password';
+      togglePwdBtn.setAttribute('aria-pressed', isPassword ? 'true' : 'false');
+      togglePwdBtn.innerHTML = `<i data-lucide="${isPassword ? 'eye-off' : 'eye'}" style="width: 16px; height: 16px;"></i>`;
+      this.refreshIcons();
+    });
 
     // Tab buttons
     const signinTab = this.overlay.querySelector('#auth-tab-signin');
@@ -274,8 +316,9 @@ export class AuthModal {
     magicBtn?.addEventListener('click', async () => {
       const emailInput = this.overlay?.querySelector<HTMLInputElement>('#auth-email-input');
       const email = emailInput?.value.trim();
-      if (!email || !email.includes('@')) {
-        this.showAlert('Please enter a valid email address first.', 'error');
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailRegex.test(email)) {
+        this.showAlert(t('authEmailRequired'), 'error');
         emailInput?.focus();
         return;
       }
@@ -306,7 +349,20 @@ export class AuthModal {
       const fullName = nameInput?.value.trim();
 
       if (!email || !password) {
-        this.showAlert('Please fill in both email and password.', 'error');
+        this.showAlert(t('authFieldsRequired'), 'error');
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        this.showAlert(t('authEmailRequired'), 'error');
+        emailInput?.focus();
+        return;
+      }
+
+      if (password.length < 6) {
+        this.showAlert(t('authPasswordMinLength'), 'error');
+        passwordInput?.focus();
         return;
       }
 

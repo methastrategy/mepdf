@@ -451,6 +451,12 @@ describe('Phase 2B - Cloud & Auth Service Layer', () => {
       modal.open({ tab: 'signin' });
       expect(modal.isOpen()).toBe(true);
 
+      const overlay = (globalThis as any).document.querySelector('#auth-modal-overlay');
+      const signinTab = overlay.querySelector('#auth-tab-signin');
+      const signupTab = overlay.querySelector('#auth-tab-signup');
+      expect(signinTab.getAttribute('aria-selected')).toBe('true');
+      expect(signupTab.getAttribute('aria-selected')).toBe('false');
+
       modal.close();
       expect(modal.isOpen()).toBe(false);
     });
@@ -580,10 +586,14 @@ function setupMockDOM() {
 
   const createMockElement = (tag: string, id?: string) => {
     const classListSet = new Set<string>();
+    const attrs = new Map<string, string>();
+    const eventListeners = new Map<string, Function[]>();
+
     const el: any = {
       tagName: tag.toUpperCase(),
       id: id || '',
       className: '',
+      type: '',
       classList: {
         add: (cls: string) => classListSet.add(cls),
         remove: (cls: string) => classListSet.delete(cls),
@@ -598,6 +608,10 @@ function setupMockDOM() {
           }
         },
       },
+      getAttribute: (name: string) => attrs.get(name) ?? null,
+      setAttribute: (name: string, val: string) => {
+        attrs.set(name, String(val));
+      },
       style: {},
       _innerHTML: '',
       get innerHTML() {
@@ -609,13 +623,28 @@ function setupMockDOM() {
         const idMatches = val.matchAll(/id=["']([^"']+)["']/g);
         for (const m of idMatches) {
           const matchedId = m[1];
-          if (matchedId && !elements.has(`#${matchedId}`)) {
-            const childEl = createMockElement('div', matchedId);
+          if (matchedId) {
+            let childEl = elements.get(`#${matchedId}`);
+            if (!childEl) {
+              childEl = createMockElement('div', matchedId);
+              elements.set(`#${matchedId}`, childEl);
+              this.appendChild(childEl);
+            }
+            const tagMatch = val.match(new RegExp(`<[^>]*id=["']${matchedId}["'][^>]*>`));
+            if (tagMatch) {
+              const tagStr = tagMatch[0];
+              const attrMatches = tagStr.matchAll(/([a-zA-Z0-9_-]+)=["']([^"']*)["']/g);
+              for (const am of attrMatches) {
+                if (am[1] && am[2] !== undefined) {
+                  childEl.setAttribute(am[1], am[2]);
+                  if (am[1] === 'type') childEl.type = am[2];
+                }
+              }
+            }
             if (val.includes(`id="${matchedId}">`)) {
               const textMatch = val.match(new RegExp(`id=["']${matchedId}["'][^>]*>([^<]*)<`));
               if (textMatch) childEl.textContent = textMatch[1] || '';
             }
-            this.appendChild(childEl);
           }
         }
         const classMatches = val.matchAll(/class=["']([^"']+)["']/g);
@@ -676,11 +705,16 @@ function setupMockDOM() {
       querySelectorAll(_sel: string) {
         return [];
       },
-      addEventListener: vi.fn(),
+      addEventListener: vi.fn((evt: string, fn: Function) => {
+        if (!eventListeners.has(evt)) eventListeners.set(evt, []);
+        eventListeners.get(evt)!.push(fn);
+      }),
       removeEventListener: vi.fn(),
       focus: vi.fn(),
       select: vi.fn(),
-      click: vi.fn(),
+      click: vi.fn(() => {
+        eventListeners.get('click')?.forEach((fn) => fn({ target: el }));
+      }),
     };
     if (id) elements.set(`#${id}`, el);
     return el;

@@ -288,6 +288,9 @@ export const translations = {
     authSignInPrompt: 'Sign in to access Cloud Library and save your documents across devices.',
     authNeedAccount: "Don't have an account? Sign Up",
     authAlreadyAccount: 'Already have an account? Sign In',
+    authEmailRequired: 'Please enter a valid email address.',
+    authFieldsRequired: 'Please enter both email and password.',
+    authPasswordMinLength: 'Password must be at least 6 characters.',
 
     // Account Widget & Tiers
     accountBtnLabel: 'Account',
@@ -622,6 +625,9 @@ export const translations = {
     authSignInPrompt: 'เข้าสู่ระบบเพื่อใช้งานคลังเอกสารบนคลาวด์และบันทึกไฟล์ข้ามอุปกรณ์',
     authNeedAccount: 'ยังไม่มีบัญชี? สมัครสมาชิก',
     authAlreadyAccount: 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ',
+    authEmailRequired: 'กรุณากรอกที่อยู่อีเมลที่ถูกต้อง',
+    authFieldsRequired: 'กรุณากรอกทั้งอีเมลและรหัสผ่าน',
+    authPasswordMinLength: 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร',
 
     // Account Widget & Tiers
     accountBtnLabel: 'บัญชีผู้ใช้',

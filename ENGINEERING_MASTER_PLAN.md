@@ -120,6 +120,8 @@ flowchart TD
 | **2026-10-24** | `v1.1.0` | ตรวจรับ Gate 1 (Hardening) และ Gate 2 (Pro Tools: Protect, Watermark, Numbering, Metadata) ผ่าน 100% | ฝ่ายวิศวกรรมระบบ (Engineering Lead) |
 | **2026-10-24** | `v1.2.0` | ตรวจรับ Gate 3 (Web Worker Offloading & Dual-Engine Lossless Compression) ผ่าน 100% | ฝ่ายวิศวกรรมระบบ (Engineering Lead) |
 | **2026-10-24** | `v2.0.0` | ตรวจรับ Gate 4 (Public Production Hardening, SEO, PWA & Stress Test) ครบ 4 เฟส 100% | ฝ่ายวิศวกรรมระบบ (Engineering Lead) |
+| **2026-11-14** | `v2.2.0` | อัปเกรด PNG export pipeline, แยกโมดูล 10 Modal Controllers, และแยก Bundle Chunks ลดขนาด 65% | ฝ่ายวิศวกรรมระบบ (Engineering Lead) |
+| **2026-11-15** | `v2.3.0` | ปรับปรุง Fullscreen Viewport ไร้ Scrollbar, ยกระดับ Modal Studio & Auth Cockpit สู่มาตรฐาน v2.5 | ฝ่ายวิศวกรรมระบบ (Engineering Lead) |
 
 ---
 *เอกสารฉบับนี้เป็นเกณฑ์อ้างอิงสูงสุดในการพัฒนาและตรวจรับงาน mePDF การแก้ไขเปลี่ยนแปลงขอบเขตงานต้องผ่านการตรวจทาน Milestone Sign-off ทุกครั้ง*

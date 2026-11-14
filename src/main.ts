@@ -127,7 +127,6 @@ class MePdfApp {
           <div class="ribbon-logo">
             <span>mePDF</span>
           </div>
-          <span class="ribbon-badge" id="brand-badge-el">STUDIO COCKPIT</span>
           <span class="ribbon-doc-info" id="ribbon-doc-info" style="display: none;"></span>
         </div>
 
@@ -1542,9 +1541,6 @@ class MePdfApp {
 
   private handleLanguageChanged(): void {
     const lang = getLanguage();
-
-    const badge = this.appEl.querySelector('#brand-badge-el');
-    if (badge) badge.textContent = 'STUDIO COCKPIT';
 
     const viewCockpitLabel = this.appEl.querySelector('#ribbon-label-cockpit');
     if (viewCockpitLabel) viewCockpitLabel.textContent = t('viewCockpit') || 'Cockpit';

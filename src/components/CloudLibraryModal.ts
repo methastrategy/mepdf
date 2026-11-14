@@ -152,7 +152,7 @@ export class CloudLibraryModal {
             <button class="btn btn-ghost btn-icon-only" id="cloud-refresh-btn" title="Refresh">
               <i data-lucide="refresh-cw" style="width: 16px; height: 16px;" class="${this.isLoading ? 'spin-icon' : ''}"></i>
             </button>
-            <button class="btn btn-ghost btn-icon-only" id="cloud-close-btn" title="Close" aria-label="Close modal">
+            <button class="btn btn-ghost btn-icon-only modal-close-pill" id="cloud-close-btn" title="Close" aria-label="Close modal">
               <i data-lucide="x" style="width: 18px; height: 18px;"></i>
             </button>
           </div>

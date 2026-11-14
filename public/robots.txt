@@ -1,4 +1,4 @@
-# robots.txt for mePDF — Pure Client-Side PDF Studio
+# robots.txt for mePDF - Pure Client-Side PDF Studio
 User-agent: *
 Allow: /
 

@@ -65,7 +65,7 @@ export class ModalManager implements ModalContext {
           <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-header-title">
             <div class="modal-header">
               <h3 class="modal-title" id="modal-header-title">Modal</h3>
-              <button class="btn btn-ghost btn-icon-only" id="modal-close-btn" title="Close" aria-label="Close modal">
+              <button class="btn btn-ghost btn-icon-only modal-close-pill" id="modal-close-btn" title="Close" aria-label="Close modal">
                 <i data-lucide="x" style="width: 18px; height: 18px;"></i>
               </button>
             </div>
