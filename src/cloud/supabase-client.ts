@@ -116,13 +116,15 @@ class MockAuthClient {
     };
   }
 
-  async signInWithOAuth({ provider: _provider }: { provider: string }): Promise<{ data: { user: MockUser; session: MockSession }; error: null }> {
+  async signInWithOAuth({ provider: _provider, options }: { provider: string; options?: any }): Promise<{ data: { user: MockUser; session: MockSession }; error: null }> {
+    const email = options?.email || 'demo.user@mepdf.app';
+    const fullName = options?.fullName || (options?.email ? options.email.split('@')[0] : 'mePDF Explorer');
     const user: MockUser = {
-      id: 'mock_google_user_' + Math.random().toString(36).slice(2, 9),
-      email: 'demo.user@mepdf.app',
+      id: 'mock_user_' + email.replace(/[^a-zA-Z0-9]/g, '_'),
+      email,
       user_metadata: {
-        full_name: 'mePDF Explorer',
-        avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=mepdf',
+        full_name: fullName,
+        avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(fullName)}`,
       },
     };
     const session: MockSession = {

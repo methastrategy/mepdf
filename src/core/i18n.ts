@@ -291,6 +291,11 @@ export const translations = {
     authEmailRequired: 'Please enter a valid email address.',
     authFieldsRequired: 'Please enter both email and password.',
     authPasswordMinLength: 'Password must be at least 6 characters.',
+    authDemoNotice: 'Offline Demo Mode: Configure Supabase in .env to use live Google Accounts',
+    authDemoToast: 'Signed in via Demo Mode. Configure Supabase in .env to connect live Gmail.',
+    authInstantGuestBtn: 'Instant Access (1-Click Pro Studio • 100% Free)',
+    authInstantToast: 'Welcome to mePDF Studio (100% Free Pro Unlocked)!',
+    authGoogleHint: 'Tip: Type your Gmail below to log in directly with your own identity',
 
     // Account Widget & Tiers
     accountBtnLabel: 'Account',
@@ -628,6 +633,11 @@ export const translations = {
     authEmailRequired: 'กรุณากรอกที่อยู่อีเมลที่ถูกต้อง',
     authFieldsRequired: 'กรุณากรอกทั้งอีเมลและรหัสผ่าน',
     authPasswordMinLength: 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร',
+    authDemoNotice: 'โหมดจำลองออฟไลน์: ตั้งค่า Supabase ใน .env เพื่อเข้าใช้งานด้วย Gmail จริง',
+    authDemoToast: 'เข้าสู่ระบบในโหมดจำลองสำเร็จ (ตั้งค่า Supabase ใน .env เพื่อเข้าใช้งานด้วย Gmail จริง)',
+    authInstantGuestBtn: 'เข้าใช้งานทันที (1-Click Pro Studio • ฟรี 100%)',
+    authInstantToast: 'ยินดีต้อนรับสู่ mePDF Studio (ปลดล็อก Pro ฟรี 100%)!',
+    authGoogleHint: 'พิมพ์ Gmail หรือ Email ของคุณด้านล่าง แล้วกดปุ่มนี้เพื่อเข้าใช้งานด้วยชื่อบัญชีของคุณได้ทันที',
 
     // Account Widget & Tiers
     accountBtnLabel: 'บัญชีผู้ใช้',

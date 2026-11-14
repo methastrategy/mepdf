@@ -131,6 +131,16 @@ export class AuthModal {
         <div class="modal-body auth-modal-body">
           <div id="auth-alert-box" class="auth-alert" style="display: none;"></div>
 
+          <!-- 1-Click Instant Studio Pass (100% Free Lifetime) -->
+          <button class="btn btn-instant-guest" id="auth-instant-btn" type="button">
+            <i data-lucide="sparkles" style="width: 16px; height: 16px; color: #f59e0b;"></i>
+            <span>${t('authInstantGuestBtn')}</span>
+          </button>
+
+          <div class="auth-divider">
+            <span>${t('authOrDivider')}</span>
+          </div>
+
           <!-- Google Social Sign In -->
           <button class="btn btn-google" id="auth-google-btn" type="button">
             <svg class="google-icon" viewBox="0 0 24 24" width="18" height="18">
@@ -141,6 +151,7 @@ export class AuthModal {
             </svg>
             <span>${t('authGoogleBtn')}</span>
           </button>
+          <p class="auth-google-hint">${t('authGoogleHint')}</p>
 
           <div class="auth-divider">
             <span>${t('authOrDivider')}</span>
@@ -295,11 +306,31 @@ export class AuthModal {
       this.render();
     });
 
+    // 1-Click Instant Studio Pass
+    const instantBtn = this.overlay.querySelector('#auth-instant-btn');
+    instantBtn?.addEventListener('click', async () => {
+      try {
+        const nameInput = this.overlay?.querySelector<HTMLInputElement>('#auth-name-input');
+        const customName = nameInput?.value.trim() || 'mePDF Creator';
+        await authService.signInAsGuest(customName);
+        const user = authService.getCurrentUser();
+        if (user) {
+          toast.show(t('authInstantToast'), 'success');
+          if (this.onSuccessCallback) this.onSuccessCallback(user);
+        }
+        this.close();
+      } catch (err: any) {
+        this.showAlert(err.message || t('authErrorGeneric'), 'error');
+      }
+    });
+
     // Google Sign In
     const googleBtn = this.overlay.querySelector('#auth-google-btn');
     googleBtn?.addEventListener('click', async () => {
       try {
-        await authService.signInWithGoogle();
+        const emailInput = this.overlay?.querySelector<HTMLInputElement>('#auth-email-input');
+        const customEmail = emailInput?.value.trim() || undefined;
+        await authService.signInWithGoogle(customEmail);
         const user = authService.getCurrentUser();
         if (user) {
           toast.show(t('authSignedInToast', { name: user.fullName || user.email }), 'success');

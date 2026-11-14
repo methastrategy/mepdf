@@ -141,13 +141,34 @@ class AuthService {
     };
   }
 
-  async signInWithGoogle(): Promise<void> {
+  async signInWithGoogle(customEmail?: string): Promise<void> {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: origin,
+        email: customEmail,
       } as any,
+    });
+    if (error) throw new Error(error.message);
+    if ((data as any)?.url && typeof window !== 'undefined') {
+      window.location.href = (data as any).url;
+      return;
+    }
+    if ((data as any)?.user) {
+      await this.loadUserProfile((data as any).user);
+    }
+  }
+
+  async signInAsGuest(name = 'mePDF Creator'): Promise<void> {
+    const cleanName = name.trim() || 'mePDF Creator';
+    const guestEmail = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'studio'}@mepdf.app`;
+    const { data, error } = await (supabase.auth as any).signInWithOAuth({
+      provider: 'guest',
+      options: {
+        email: guestEmail,
+        fullName: cleanName,
+      },
     });
     if (error) throw new Error(error.message);
     if ((data as any)?.user) {
@@ -164,6 +185,10 @@ class AuthService {
       } as any,
     });
     if (error) throw new Error(error.message);
+    if ((data as any)?.url && typeof window !== 'undefined') {
+      window.location.href = (data as any).url;
+      return;
+    }
     if ((data as any)?.user) {
       await this.loadUserProfile((data as any).user);
     }

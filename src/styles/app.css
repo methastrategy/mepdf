@@ -287,9 +287,9 @@ textarea:disabled,
 .workspace-main {
   flex: 1;
   min-height: 0;
-  height: calc(100vh - 56px);
-  height: calc(100dvh - 56px);
-  max-height: calc(100dvh - 56px);
+  height: calc(100vh - var(--ribbon-height, 100px));
+  height: calc(100dvh - var(--ribbon-height, 100px));
+  max-height: calc(100dvh - var(--ribbon-height, 100px));
   display: flex;
   flex-direction: column;
   padding: 1.25rem 1.5rem;
@@ -307,9 +307,9 @@ textarea:disabled,
   padding: 0;
   max-width: none;
   width: 100%;
-  height: calc(100vh - 56px);
-  height: calc(100dvh - 56px);
-  max-height: calc(100dvh - 56px);
+  height: calc(100vh - var(--ribbon-height, 100px));
+  height: calc(100dvh - var(--ribbon-height, 100px));
+  max-height: calc(100dvh - var(--ribbon-height, 100px));
   overflow: hidden;
 }
 
@@ -1779,6 +1779,37 @@ textarea:disabled,
   color: #86efac;
 }
 
+/* 1-Click Instant Studio Pass Button */
+.btn-instant-guest {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  min-height: 46px;
+  background: linear-gradient(in oklab 135deg, rgba(245, 158, 11, 0.16) 0%, rgba(217, 119, 6, 0.22) 100%);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  box-shadow: 0 2px 14px rgba(245, 158, 11, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.btn-instant-guest:hover {
+  background: linear-gradient(in oklab 135deg, rgba(245, 158, 11, 0.28) 0%, rgba(217, 119, 6, 0.38) 100%);
+  border-color: rgba(245, 158, 11, 0.65);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-instant-guest:active {
+  transform: scale(0.985);
+}
+
 /* Elevated Google Social Button */
 .btn-google {
   display: flex;
@@ -1812,6 +1843,29 @@ textarea:disabled,
 
 .google-icon {
   flex-shrink: 0;
+}
+
+.auth-google-hint {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.35;
+  margin-top: -0.25rem;
+}
+
+.auth-demo-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(6, 182, 212, 0.08);
+  border: 1px dashed rgba(6, 182, 212, 0.35);
+  font-size: 0.735rem;
+  color: var(--accent-cyan);
+  text-align: center;
+  line-height: 1.35;
 }
 
 .auth-divider {
@@ -2546,19 +2600,20 @@ textarea:disabled,
 
 /* Top Command Ribbon */
 .command-ribbon {
-  height: 56px;
+  height: var(--ribbon-height, 100px);
   background-color: var(--bg-app);
   background-image: linear-gradient(in oklab to bottom, rgba(255, 255, 255, 0.03), transparent);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.25rem;
+  padding: 0 2rem;
   position: sticky;
   top: 0;
   z-index: 50;
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
+  transition: height var(--duration-fast) var(--ease-spring);
 }
 
 [data-theme="bmw"] .command-ribbon {
@@ -2710,8 +2765,8 @@ textarea:disabled,
 .cockpit-workspace {
   display: grid;
   grid-template-columns: 260px 1fr 340px;
-  height: calc(100vh - 56px);
-  height: calc(100dvh - 56px);
+  height: calc(100vh - var(--ribbon-height, 100px));
+  height: calc(100dvh - var(--ribbon-height, 100px));
   overflow: hidden;
   background-color: var(--bg-app);
 }

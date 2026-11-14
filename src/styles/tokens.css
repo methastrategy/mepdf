@@ -70,6 +70,21 @@
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 120ms;
   --duration-normal: 220ms;
+
+  /* Layout Sizing & Header Viewport Tokens */
+  --ribbon-height: 100px;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --ribbon-height: 76px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --ribbon-height: 64px;
+  }
 }
 
 /* ========================================================
