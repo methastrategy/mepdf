@@ -62,11 +62,38 @@
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-full: 9999px;
+  --radius-outer: 12px;
+  --radius-inner: max(0px, calc(var(--radius-outer) - 1px - 4px));
+  --corner-r: max(0px, calc(var(--radius-md) - 1px - 4px));
 
   /* Precision Motion Profile */
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 120ms;
   --duration-normal: 220ms;
+}
+
+/* ========================================================
+   GLOBAL ACCESSIBILITY & FOCUS HARNESS (HARD INVARIANTS)
+   ======================================================== */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
 }
 
 /* ========================================================
@@ -120,6 +147,9 @@
   --radius-md: 12px;
   --radius-lg: 18px;
   --radius-full: 9999px;
+  --radius-outer: 16px;
+  --radius-inner: max(0px, calc(var(--radius-outer) - 1px - 4px));
+  --corner-r: max(0px, calc(var(--radius-md) - 1px - 4px));
 
   /* Cockpit Elevation, Shadows & Rim Highlight */
   --shadow-inner-rim: inset 0 1px 0 rgba(255, 255, 255, 0.10);

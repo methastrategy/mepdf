@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="bmw">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>mePDF - Visual Testbed & Design Verification</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../src/styles/tokens.css" />
+  <link rel="stylesheet" href="../src/styles/app.css" />
+  <style>
+    :root {
+      --corner-r: max(0px, calc(var(--radius-md) - 1px - 4px));
+    }
+    button:hover, .btn:hover {
+      opacity: 0.95;
+    }
+    button:active, .btn:active {
+      transform: scale(0.985);
+    }
+    /* Critical fallback focus & forced-colors harness */
+    :focus-visible {
+      outline: 2px solid var(--border-focus);
+      outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+    @media (forced-colors: active) {
+      :focus-visible {
+        outline: 2px solid Highlight !important;
+        outline-offset: 2px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Top Command Ribbon -->
+    <header class="command-ribbon navbar">
+      <div class="ribbon-brand-section">
+        <div class="ribbon-logo">
+          <span>mePDF</span>
+        </div>
+        <span class="ribbon-badge">STUDIO COCKPIT</span>
+      </div>
+
+      <div class="ribbon-center-section">
+        <div class="ribbon-pill-group">
+          <button class="ribbon-pill-btn active" id="btn-cockpit-view" title="3-Pane Studio Cockpit View">
+            <span>Cockpit</span>
+          </button>
+          <button class="ribbon-pill-btn" id="btn-grid-view" title="Full Grid Overview">
+            <span>Grid</span>
+          </button>
+        </div>
+
+        <div class="ribbon-zoom-group">
+          <button class="ribbon-zoom-btn" id="btn-zoom-out" title="Zoom Out">-</button>
+          <span class="ribbon-zoom-val">100%</span>
+          <button class="ribbon-zoom-btn" id="btn-zoom-in" title="Zoom In">+</button>
+        </div>
+      </div>
+
+      <div class="ribbon-right-section nav-actions">
+        <button class="lang-switcher-btn" id="btn-lang-toggle" title="Switch Language">
+          <span class="lang-opt active">TH</span>
+          <span class="lang-sep">/</span>
+          <span class="lang-opt">EN</span>
+        </button>
+
+        <button class="btn btn-secondary btn-sm" id="btn-add-files">
+          <span>Add Files</span>
+        </button>
+
+        <button class="btn btn-primary" id="btn-export">
+          <span>Export PDF</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="workspace-main" id="workspace-main">
+      <div class="cockpit-workspace" style="display: grid; min-height: 500px;">
+        <!-- Left Filmstrip Pane -->
+        <aside class="cockpit-filmstrip" style="padding: 0.75rem;">
+          <div class="filmstrip-header" style="margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <span class="filmstrip-title" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">PAGES (1)</span>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn btn-secondary btn-sm" id="btn-select-all">Select All</button>
+            </div>
+          </div>
+          <div class="filmstrip-card active" tabindex="0">
+            <div class="filmstrip-card-rail">
+              <span class="filmstrip-page-num">01</span>
+              <span class="filmstrip-drag-handle">::</span>
+            </div>
+            <div class="filmstrip-thumb-wrap">
+              <div style="width: 100%; height: 100%; background: #1a1e28; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted);">
+                Page 1
+              </div>
+              <span class="filmstrip-rotation-badge">0°</span>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Center Canvas Stage -->
+        <section class="cockpit-canvas" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem;">
+          <div class="canvas-stage-wrapper" style="border: 1px solid var(--border-medium); border-radius: var(--radius-md); padding: 1rem; background: var(--surface-raised);">
+            <div style="width: 320px; height: 420px; background: #ffffff; color: #000000; padding: 1.5rem; border-radius: 4px; box-shadow: var(--shadow-md);">
+              <h1 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">mePDF Document</h1>
+              <p style="font-size: 0.875rem; color: #4b5563;">ทดสอบการจัดพิมพ์ภาษาไทยและอังกฤษ พร้อมระบบตรวจสอบความคมชัดและการจัดวางแบบ Universal Design</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right Inspector Pane -->
+        <aside class="cockpit-inspector" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+          <h2 style="font-size: 0.875rem; font-weight: 700; color: var(--text-primary);">Tools &amp; Properties</h2>
+          <div class="form-group">
+            <label class="form-label" for="test-slider">Compression Quality</label>
+            <input type="range" class="form-range" id="test-slider" min="1" max="100" value="75" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="test-input">Watermark Text</label>
+            <input type="text" class="input-text" id="test-input" value="CONFIDENTIAL" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="test-select">Position</label>
+            <select class="input-select" id="test-select">
+              <option>Center</option>
+              <option>Top-Left</option>
+              <option>Bottom-Right</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary" id="btn-rotate-sel">Rotate 90°</button>
+            <button class="btn btn-danger" id="btn-del-sel">Delete</button>
+          </div>
+          <button class="btn btn-secondary" id="btn-disabled-test" disabled>Disabled Action</button>
+          <div class="form-group">
+            <label class="form-label" for="test-preview-box">Extracted Text</label>
+            <textarea class="text-preview-box" id="test-preview-box" style="height: 120px;">PDF Studio text sample...</textarea>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

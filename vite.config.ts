@@ -16,7 +16,7 @@ export default defineConfig({
         'icons/*.png',
       ],
       manifest: {
-        name: 'mePDF — Pure Client-Side PDF Studio',
+        name: 'mePDF - Pure Client-Side PDF Studio',
         short_name: 'mePDF',
         description: '100% In-Browser PDF Studio. Merge, split, rotate, reorder, compress, and convert PDFs offline with zero server upload.',
         theme_color: '#06070a',

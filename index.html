@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>mePDF — 100% In-Browser PDF Visual Studio | รวม แยก บีบอัด ล็อกรหัส แปลงไฟล์ PDF ฟรี</title>
+    <title>mePDF - 100% In-Browser PDF Visual Studio | รวม แยก บีบอัด ล็อกรหัส แปลงไฟล์ PDF ฟรี</title>
     <meta name="description" content="โปรแกรมจัดการเอกสาร PDF บนเบราว์เซอร์ 100% ฟรี รวมไฟล์, แยกหน้า, บีบอัดลดขนาด (ทั้งโหมดรักษาข้อความและภาพสแกน), ล็อกรหัสผ่าน, ใส่ลายน้ำ, รันเลขหน้า และล้างข้อมูล Metadata โดยไม่มีการอัปโหลดไฟล์ขึ้นเซิร์ฟเวอร์ ข้อมูลปลอดภัยสูงสุด" />
     <meta name="keywords" content="pdf, mepdf, merge pdf, split pdf, compress pdf, protect pdf, watermark pdf, page numbering, sanitize pdf, รวมไฟล์ pdf, แยกไฟล์ pdf, บีบอัด pdf, ล็อกรหัส pdf, ใส่ลายน้ำ pdf, รันเลขหน้า pdf, แก้ไข metadata pdf, โปรแกรม pdf ฟรี, pdf offline" />
     <meta name="author" content="Metha Triparpanchit" />
@@ -23,14 +23,14 @@
     <meta property="og:site_name" content="mePDF Studio" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://mepdf.vercel.app/" />
-    <meta property="og:title" content="mePDF — Pure Client-Side PDF Visual Studio" />
+    <meta property="og:title" content="mePDF - Pure Client-Side PDF Visual Studio" />
     <meta property="og:description" content="100% In-Browser PDF Studio. Merge, split, compress, protect, watermark, and reorder PDFs offline with zero server upload." />
     <meta property="og:image" content="https://mepdf.vercel.app/hero_mepdf_studio.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://mepdf.vercel.app/" />
-    <meta name="twitter:title" content="mePDF — Pure Client-Side PDF Visual Studio" />
+    <meta name="twitter:title" content="mePDF - Pure Client-Side PDF Visual Studio" />
     <meta name="twitter:description" content="100% In-Browser PDF Studio. Merge, split, compress, protect, watermark, and reorder PDFs offline with zero server upload." />
     <meta name="twitter:image" content="https://mepdf.vercel.app/hero_mepdf_studio.jpg" />
 
@@ -73,6 +73,27 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <!-- Critical Accessibility & Focus Harness (Hard Invariants) -->
+    <style>
+      :focus-visible {
+        outline: 2px solid #5068f2;
+        outline-offset: 2px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+      @media (forced-colors: active) {
+        :focus-visible {
+          outline: 2px solid Highlight !important;
+          outline-offset: 2px !important;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="app" class="app-container"></div>

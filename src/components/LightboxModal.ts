@@ -343,7 +343,7 @@ export class LightboxModal {
     // Update UI elements
     const titleEl = this.overlay.querySelector('#lightbox-doc-title');
     if (titleEl) {
-      titleEl.textContent = `${page.docName} — ${t('cardPagePrefix', { num: page.displayPageNumber })}`;
+      titleEl.textContent = `${page.docName} - ${t('cardPagePrefix', { num: page.displayPageNumber })}`;
     }
 
     const counterEl = this.overlay.querySelector('#lightbox-page-counter');
