@@ -3332,6 +3332,8 @@ body.cockpit-resizing img {
 
 /* Right Property Inspector */
 .cockpit-inspector {
+  container-type: inline-size;
+  container-name: inspector;
   background: var(--surface-base);
   border-left: 1px solid var(--border-subtle);
   display: flex;
@@ -3392,10 +3394,11 @@ body.cockpit-resizing img {
 
 .inspector-tabs-nav {
   display: flex;
-  overflow-x: auto;
-  padding: 0 0.5rem 0.4rem;
-  gap: 0.25rem;
-  scrollbar-width: none;
+  flex-wrap: wrap;
+  padding: 0.45rem 0.65rem 0.55rem;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .inspector-tabs-nav::-webkit-scrollbar {
@@ -3403,12 +3406,14 @@ body.cockpit-resizing img {
 }
 
 .inspector-nav-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
-  padding: 0.3rem 0.6rem;
-  background: transparent;
-  border: 1px solid transparent;
+  padding: 0.35rem 0.55rem;
+  min-height: 32px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 0.75rem;
@@ -3416,17 +3421,29 @@ body.cockpit-resizing img {
   cursor: pointer;
   white-space: nowrap;
   transition: all var(--duration-fast);
+  flex: 1 1 calc(33.333% - 0.35rem);
+  min-width: 76px;
+  text-align: center;
 }
 
 .inspector-nav-btn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--border-focus);
 }
 
 .inspector-nav-btn.active {
-  background: rgba(79, 95, 247, 0.15);
-  border-color: rgba(79, 95, 247, 0.4);
+  background: rgba(79, 95, 247, 0.18);
+  border-color: rgba(79, 95, 247, 0.5);
   color: var(--primary);
+  box-shadow: 0 0 10px rgba(79, 95, 247, 0.2);
+}
+
+@container inspector (min-width: 440px) {
+  .inspector-nav-btn {
+    flex: 1 1 auto;
+    padding: 0.35rem 0.75rem;
+  }
 }
 
 .inspector-content {
@@ -3474,8 +3491,35 @@ body.cockpit-resizing img {
 
 .inspector-btn-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0.5rem;
+}
+
+.inspector-btn-grid .btn {
+  white-space: normal;
+  word-break: break-word;
+  text-align: center;
+  line-height: 1.25;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.75rem;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+@container inspector (min-width: 360px) {
+  .inspector-btn-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@supports not (container-type: inline-size) {
+  .inspector-btn-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
 }
 
 .inspector-btn-stack {
