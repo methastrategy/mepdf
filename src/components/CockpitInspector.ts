@@ -123,6 +123,8 @@ export class CockpitInspector {
   setActiveTab(tab: InspectorTab): void {
     this.activeTab = tab;
     this.isCollapsed = false;
+    this.container.classList.remove('collapsed');
+    this.container.parentElement?.classList.remove('inspector-collapsed');
     this.render();
     this.notifyPreviewUpdates();
   }
@@ -134,6 +136,7 @@ export class CockpitInspector {
   setCollapsed(collapsed: boolean): void {
     this.isCollapsed = collapsed;
     this.container.classList.toggle('collapsed', collapsed);
+    this.container.parentElement?.classList.toggle('inspector-collapsed', collapsed);
     this.render();
   }
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CockpitFilmstrip } from '../src/components/CockpitFilmstrip';
 import { CockpitCanvas } from '../src/components/CockpitCanvas';
 import { CockpitInspector } from '../src/components/CockpitInspector';
+import { CockpitResizer } from '../src/components/CockpitResizer';
 import type { PDFPageItem } from '../src/core/types';
 
 vi.mock('lucide', async (importOriginal) => {
@@ -308,6 +309,24 @@ describe('BMW Neue Klasse 3-Pane Studio Cockpit Architecture', () => {
       expect(numOverlay.style.display).toBe('block');
       expect(numOverlay.textContent).toBe('1 / 2');
     });
+
+    it('applies is-portrait class for portrait sheets and leaves landscape sheets for 100% full fit', () => {
+      const container = (globalThis as any).document.createElement('div');
+      const canvas = new CockpitCanvas(container, {
+        onPrevPage: vi.fn(),
+        onNextPage: vi.fn(),
+        onRotateActive: vi.fn(),
+      });
+
+      // Portrait page (595x842)
+      canvas.setActivePage(samplePages[0], 0, 2);
+      expect(container.innerHTML).toContain('canvas-document-sheet is-portrait');
+
+      // Landscape page (page 2 with rotation 90deg -> 842x595)
+      canvas.setActivePage(samplePages[1], 1, 2);
+      expect(container.innerHTML).toContain('canvas-document-sheet ');
+      expect(container.innerHTML).not.toContain('is-portrait');
+    });
   });
 
   describe('3. CockpitInspector (Right Property Inspector Panel)', () => {
@@ -416,6 +435,49 @@ describe('BMW Neue Klasse 3-Pane Studio Cockpit Architecture', () => {
       expect(events.onApplyCompress).toHaveBeenCalledWith(
         expect.objectContaining({ engine: 'lossless' })
       );
+    });
+  });
+
+  describe('4. CockpitResizer (Interactive Splitter Rails)', () => {
+    it('applies default widths and updates CSS variables', () => {
+      const workspace = (globalThis as any).document.createElement('div');
+      workspace.style = {
+        setProperty: vi.fn(),
+      };
+      const leftResizer = (globalThis as any).document.createElement('div');
+      const rightResizer = (globalThis as any).document.createElement('div');
+
+      const resizer = new CockpitResizer({
+        workspaceEl: workspace,
+        leftResizerEl: leftResizer,
+        rightResizerEl: rightResizer,
+        defaultFilmstripWidth: 260,
+        defaultInspectorWidth: 340,
+      });
+
+      expect(resizer.getFilmstripWidth()).toBe(260);
+      expect(resizer.getInspectorWidth()).toBe(340);
+      expect(workspace.style.setProperty).toHaveBeenCalledWith('--filmstrip-width', '260px');
+      expect(workspace.style.setProperty).toHaveBeenCalledWith('--inspector-width', '340px');
+    });
+
+    it('resets widths to default on resetWidths', () => {
+      const workspace = (globalThis as any).document.createElement('div');
+      workspace.style = {
+        setProperty: vi.fn(),
+      };
+      const leftResizer = (globalThis as any).document.createElement('div');
+      const rightResizer = (globalThis as any).document.createElement('div');
+
+      const resizer = new CockpitResizer({
+        workspaceEl: workspace,
+        leftResizerEl: leftResizer,
+        rightResizerEl: rightResizer,
+      });
+
+      resizer.resetWidths();
+      expect(resizer.getFilmstripWidth()).toBe(260);
+      expect(resizer.getInspectorWidth()).toBe(340);
     });
   });
 });

@@ -36,6 +36,7 @@ export interface CockpitCanvasEvents {
   onNextPage: () => void;
   onRotateActive: (degrees: number) => void;
   onZoomChange?: (zoom: number) => void;
+  onOpenLightbox?: () => void;
 }
 
 export class CockpitCanvas {
@@ -128,6 +129,7 @@ export class CockpitCanvas {
     const minDim = Math.min(page.width, page.height);
     const maxDim = Math.max(page.width, page.height);
     const imgScale = isRotated && minDim > 0 && maxDim > 0 ? (minDim / maxDim).toFixed(3) : '1';
+    const isPortrait = pageHeight >= pageWidth;
 
     this.container.innerHTML = `
       <div class="cockpit-canvas-inner">
@@ -170,13 +172,17 @@ export class CockpitCanvas {
             <button class="telemetry-btn" id="canvas-btn-zoom-in" title="Zoom In">
               <i data-lucide="zoom-in" style="width: 14px; height: 14px;"></i>
             </button>
+            <div class="telemetry-separator"></div>
+            <button class="telemetry-btn" id="canvas-btn-lightbox" title="${t('lightboxTitle') || 'High-Resolution Vector Preview'}">
+              <i data-lucide="maximize-2" style="width: 14px; height: 14px;"></i>
+            </button>
           </div>
         </div>
 
         <!-- Canvas Viewport with ambient Neue Klasse glow -->
         <div class="canvas-viewport" id="canvas-viewport-stage">
           <div class="canvas-sheet-wrapper" id="canvas-sheet-wrapper" style="transform: scale(${this.zoom}); transform-origin: center center;">
-            <div class="canvas-document-sheet" id="canvas-document-sheet" style="aspect-ratio: ${pageWidth} / ${pageHeight};">
+            <div class="canvas-document-sheet ${isPortrait ? 'is-portrait' : ''}" id="canvas-document-sheet" style="aspect-ratio: ${pageWidth} / ${pageHeight};">
               <img class="canvas-page-render" 
                    src="${page.thumbnailDataUrl}" 
                    alt="Active Page ${page.displayPageNumber}" 
@@ -280,6 +286,16 @@ export class CockpitCanvas {
 
     const zoomFitBtn = this.container.querySelector('#canvas-btn-zoom-fit');
     zoomFitBtn?.addEventListener('click', () => this.setZoom(1.0));
+
+    const lightboxBtn = this.container.querySelector('#canvas-btn-lightbox');
+    lightboxBtn?.addEventListener('click', () => {
+      if (this.events.onOpenLightbox) this.events.onOpenLightbox();
+    });
+
+    const wrapper = this.container.querySelector('#canvas-sheet-wrapper');
+    wrapper?.addEventListener('dblclick', () => {
+      if (this.events.onOpenLightbox) this.events.onOpenLightbox();
+    });
 
     // Wheel zooming on viewport
     const viewport = this.container.querySelector<HTMLElement>('#canvas-viewport-stage');

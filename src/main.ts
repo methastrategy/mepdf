@@ -44,6 +44,7 @@ import { VisualGrid } from './components/VisualGrid';
 import { CockpitFilmstrip } from './components/CockpitFilmstrip';
 import { CockpitCanvas } from './components/CockpitCanvas';
 import { CockpitInspector, type InspectorTab } from './components/CockpitInspector';
+import { CockpitResizer } from './components/CockpitResizer';
 import { modal } from './components/Modal';
 import { toast } from './components/Toast';
 import { progressOverlay } from './components/ProgressOverlay';
@@ -78,6 +79,7 @@ class MePdfApp {
   private cockpitFilmstrip: CockpitFilmstrip | null = null;
   private cockpitCanvas: CockpitCanvas | null = null;
   private cockpitInspector: CockpitInspector | null = null;
+  private cockpitResizer: CockpitResizer | null = null;
   private activePageId: string | null = null;
   private activeViewMode: 'cockpit' | 'grid' = 'cockpit';
 
@@ -210,7 +212,13 @@ class MePdfApp {
         <!-- 3-Pane Studio Cockpit Workspace -->
         <div id="cockpit-workspace" class="cockpit-workspace" style="display: none;">
           <div id="cockpit-filmstrip-pane" class="cockpit-filmstrip"></div>
+          <div id="cockpit-resizer-left" class="cockpit-resizer cockpit-resizer-left" title="Drag to resize filmstrip (Double-click to reset)" role="separator" aria-orientation="vertical">
+            <div class="resizer-handle-pill"></div>
+          </div>
           <div id="cockpit-canvas-pane" class="cockpit-canvas"></div>
+          <div id="cockpit-resizer-right" class="cockpit-resizer cockpit-resizer-right" title="Drag to resize inspector (Double-click to reset)" role="separator" aria-orientation="vertical">
+            <div class="resizer-handle-pill"></div>
+          </div>
           <div id="cockpit-inspector-pane" class="cockpit-inspector"></div>
         </div>
 
@@ -254,6 +262,11 @@ class MePdfApp {
       onZoomChange: (zoom) => {
         const val = this.appEl.querySelector<HTMLElement>('#ribbon-zoom-val');
         if (val) val.textContent = `${Math.round(zoom * 100)}%`;
+      },
+      onOpenLightbox: () => {
+        if (this.activePageId) {
+          this.lightboxModal?.open(this.activePageId, this.pages, this.documents);
+        }
       },
     });
 
@@ -307,6 +320,18 @@ class MePdfApp {
         this.handleTabSwitch('extract-text');
       },
     });
+
+    // 4. Cockpit Resizer Splitters
+    const cockpitWorkspace = this.appEl.querySelector<HTMLElement>('#cockpit-workspace');
+    const leftResizer = this.appEl.querySelector<HTMLElement>('#cockpit-resizer-left');
+    const rightResizer = this.appEl.querySelector<HTMLElement>('#cockpit-resizer-right');
+    if (cockpitWorkspace && leftResizer && rightResizer) {
+      this.cockpitResizer = new CockpitResizer({
+        workspaceEl: cockpitWorkspace,
+        leftResizerEl: leftResizer,
+        rightResizerEl: rightResizer,
+      });
+    }
 
     // Sub-components: User Account Menu
     const accountContainer = this.appEl.querySelector<HTMLElement>('#nav-user-account-container');
@@ -695,7 +720,7 @@ class MePdfApp {
               percent: Math.round((pNum / pageCount) * 100),
             });
 
-            const { dataUrl, width, height } = await renderPageThumbnail(pdfDoc, pNum, 0, 320, docId);
+            const { dataUrl, width, height } = await renderPageThumbnail(pdfDoc, pNum, 0, 1600, docId);
 
             const pageItem: PDFPageItem = {
               id: `page_${docId}_${pNum}_${Date.now()}_${Math.random().toString(36).slice(2, 4)}`,
@@ -1597,6 +1622,10 @@ class MePdfApp {
     this.toolbar?.setAuthenticated(authService.isAuthenticated());
     this.visualGrid?.setPages(this.pages);
     this.userAccountMenu?.render();
+  }
+
+  public getCockpitResizer(): CockpitResizer | null {
+    return this.cockpitResizer;
   }
 }
 

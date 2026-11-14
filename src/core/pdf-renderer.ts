@@ -112,7 +112,7 @@ export async function renderPageThumbnail(
   pdfDoc: pdfjsLib.PDFDocumentProxy,
   pageNumber: number,
   rotation = 0,
-  targetWidth = 320,
+  targetWidth = 1600,
   cacheKeyPrefix?: string
 ): Promise<{ dataUrl: string; width: number; height: number }> {
   const page = await pdfDoc.getPage(pageNumber);
@@ -149,7 +149,7 @@ export async function renderPageThumbnail(
     const renderTask = page.render(renderContext);
     await renderTask.promise;
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
     // Release canvas buffer memory
     canvas.width = 0;
