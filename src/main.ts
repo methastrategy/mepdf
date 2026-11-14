@@ -52,12 +52,6 @@ import { LightboxModal } from './components/LightboxModal';
 import { t, getLanguage, setLanguage, onLanguageChange } from './core/i18n';
 import { saveWorkspaceState, loadWorkspaceState, clearWorkspaceState } from './core/workspace-storage';
 import { getCurrentRoute, setHashRoute, onHashChange, type ToolRoute } from './core/router';
-import type { CloudDocument } from './cloud/document-service';
-import { authService } from './cloud/auth-service';
-import { authModal } from './components/AuthModal';
-import { UserAccountMenu } from './components/UserAccountMenu';
-import { cloudLibraryModal } from './components/CloudLibraryModal';
-import { saveToCloudModal } from './components/SaveToCloudModal';
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const clean = hex.replace('#', '');
@@ -89,7 +83,6 @@ class MePdfApp {
 
   // Modals & Menu
   private lightboxModal: LightboxModal | null = null;
-  private userAccountMenu: UserAccountMenu | null = null;
   private fileInput: HTMLInputElement;
   private pendingAction: string | null = null;
   private undoStack: Array<{
@@ -164,8 +157,6 @@ class MePdfApp {
             <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
             <span id="ribbon-add-files-label">${t('toolbarAddFiles') || 'Add'}</span>
           </button>
-
-          <div id="nav-user-account-container"></div>
 
           <button class="lang-switcher-btn" id="nav-lang-toggle-btn" title="Switch Language / สลับภาษา">
             <i data-lucide="globe" style="width: 13px; height: 13px;"></i>
@@ -333,20 +324,6 @@ class MePdfApp {
       });
     }
 
-    // Sub-components: User Account Menu
-    const accountContainer = this.appEl.querySelector<HTMLElement>('#nav-user-account-container');
-    if (accountContainer) {
-      this.userAccountMenu = new UserAccountMenu(accountContainer, {
-        onOpenCloudLibrary: () => cloudLibraryModal.open(),
-        onOpenAuthModal: () => authModal.open(),
-      });
-    }
-
-    cloudLibraryModal.setOptions({
-      onOpenInStudio: async (doc, bytes) => this.loadCloudDocument(doc, bytes),
-      onClose: () => this.resetNavTabToStudio(),
-    });
-
     // Full Grid and Toolbar components
     const controlsContainer = this.appEl.querySelector<HTMLElement>('#workspace-controls')!;
     const gridContainer = this.appEl.querySelector<HTMLElement>('#workspace-grid')!;
@@ -361,12 +338,6 @@ class MePdfApp {
       onOpenSplit: () => this.openSplitModal(),
       onAddFiles: () => this.fileInput.click(),
       onClearAll: () => this.clearAll(),
-      onSaveToCloud: () => this.handleSaveToCloud(),
-    });
-
-    this.toolbar.setAuthenticated(authService.isAuthenticated());
-    authService.onAuthStateChange((user) => {
-      this.toolbar?.setAuthenticated(Boolean(user));
     });
 
     this.visualGrid = new VisualGrid(gridContainer, {
@@ -550,10 +521,7 @@ class MePdfApp {
       if (
         modal.isOpen() ||
         progressOverlay.isOpen() ||
-        (this.lightboxModal && this.lightboxModal.isOpen()) ||
-        authModal.isOpen() ||
-        cloudLibraryModal.isOpen() ||
-        saveToCloudModal.isOpen()
+        (this.lightboxModal && this.lightboxModal.isOpen())
       ) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -1111,54 +1079,6 @@ class MePdfApp {
     }
   }
 
-  private async handleSaveToCloud(): Promise<void> {
-    if (this.pages.length === 0) {
-      toast.show(t('toastNoPagesToExport'), 'info');
-      return;
-    }
-
-    try {
-      const { docBytes, docName } = await this.getActiveDocumentBytes();
-      const firstPage = this.pages[0];
-      saveToCloudModal.open({
-        filename: docName,
-        fileBytes: docBytes,
-        pageCount: this.pages.length,
-        thumbnailDataUrl: firstPage?.thumbnailDataUrl,
-        onSuccess: () => {
-          this.userAccountMenu?.render();
-        },
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.show(`Could not prepare file: ${msg}`, 'error');
-    }
-  }
-
-  private async loadCloudDocument(doc: CloudDocument, bytes: Uint8Array): Promise<void> {
-    try {
-      progressOverlay.show(`Loading ${doc.filename}...`);
-      if (this.pages.length > 0) {
-        this.pages = [];
-        this.documents.clear();
-        this.undoStack = [];
-        clearThumbnailCache();
-      }
-
-      const virtualFile = new File([bytes as any], doc.filename, {
-        type: 'application/pdf',
-      });
-      await this.handleFiles([virtualFile]);
-      this.resetNavTabToStudio();
-      toast.show(`Loaded "${doc.filename}" from cloud library`, 'success');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.show(`Failed to load cloud document: ${msg}`, 'error');
-    } finally {
-      progressOverlay.hide();
-    }
-  }
-
   private openSplitModal(): void {
     if (this.pages.length < 2) {
       toast.show(t('toastMinPagesToSplit'), 'info');
@@ -1435,19 +1355,8 @@ class MePdfApp {
       return;
     }
 
-    if (tab === 'account') {
-      if (authService.isAuthenticated()) {
-        cloudLibraryModal.open();
-      } else {
-        authModal.open({
-          onClose: () => this.resetNavTabToStudio(),
-        });
-      }
-      return;
-    }
-
-    if (tab === 'cloud-library') {
-      cloudLibraryModal.open();
+    if (tab === 'account' || tab === 'cloud-library') {
+      this.resetNavTabToStudio();
       return;
     }
 
@@ -1619,9 +1528,7 @@ class MePdfApp {
     this.cockpitCanvas?.render();
     this.cockpitInspector?.render();
     this.toolbar?.render();
-    this.toolbar?.setAuthenticated(authService.isAuthenticated());
     this.visualGrid?.setPages(this.pages);
-    this.userAccountMenu?.render();
   }
 
   public getCockpitResizer(): CockpitResizer | null {
