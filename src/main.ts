@@ -30,11 +30,13 @@ import type { PDFPageItem, DocumentMetadata } from './core/types';
 import {
   loadPdfDocument,
   renderPageThumbnail,
+  renderPageToCanvas,
   destroyPdfDocument,
   clearThumbnailCache,
   removeDocThumbnails,
 } from './core/pdf-renderer';
 import { imagesToPdf, getPDFMetadata } from './core/pdf-operations';
+import { PhotoStudioModal, type PhotoStudioApplyResult } from './components/photo/PhotoStudioModal';
 
 import { compressPdf } from './core/pdf-compressor';
 import { pdfWorker } from './core/worker-client';
@@ -45,6 +47,9 @@ import { CockpitFilmstrip } from './components/CockpitFilmstrip';
 import { CockpitCanvas } from './components/CockpitCanvas';
 import { CockpitInspector, type InspectorTab } from './components/CockpitInspector';
 import { CockpitResizer } from './components/CockpitResizer';
+import { MenuBar } from './components/MenuBar';
+import { StatusBar } from './components/StatusBar';
+import { platformBridge } from './core/tauri-bridge';
 import { modal } from './components/Modal';
 import { toast } from './components/Toast';
 import { progressOverlay } from './components/ProgressOverlay';
@@ -64,12 +69,14 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   };
 }
 
-class MePdfApp {
+class MeCraftApp {
   private appEl: HTMLElement;
   private documents = new Map<string, DocumentMetadata>();
   private pages: PDFPageItem[] = [];
 
   // Studio Cockpit Components
+  private menuBar: MenuBar | null = null;
+  private statusBar: StatusBar | null = null;
   private cockpitFilmstrip: CockpitFilmstrip | null = null;
   private cockpitCanvas: CockpitCanvas | null = null;
   private cockpitInspector: CockpitInspector | null = null;
@@ -83,6 +90,7 @@ class MePdfApp {
 
   // Modals & Menu
   private lightboxModal: LightboxModal | null = null;
+  private photoStudioModal: PhotoStudioModal | null = null;
   private fileInput: HTMLInputElement;
   private pendingAction: string | null = null;
   private undoStack: Array<{
@@ -102,6 +110,20 @@ class MePdfApp {
     document.body.appendChild(this.fileInput);
 
     this.lightboxModal = new LightboxModal();
+    this.photoStudioModal = new PhotoStudioModal({
+      onApplyToCurrentPage: async (result) => {
+        await this.handlePhotoStudioApply(result);
+      },
+      onInsertAsNewPage: async (result) => {
+        await this.handlePhotoStudioInsert(result);
+      },
+      onDownload: () => {
+        toast.show(t('toastExportSuccess').replace('{count}', '1'), 'success');
+      },
+      onClose: () => {
+        this.resetNavTabToStudio();
+      },
+    });
 
     // Lock theme permanently to Neue Klasse Luxury
     document.documentElement.setAttribute('data-theme', 'bmw');
@@ -116,11 +138,14 @@ class MePdfApp {
   private renderShell(): void {
     const lang = getLanguage();
     this.appEl.innerHTML = `
+      <!-- Desktop Studio Native-Grade Menu Bar -->
+      <div id="app-menubar" class="app-menubar-container"></div>
+
       <!-- Top Command Ribbon (BMW Neue Klasse Luxury Style) -->
       <header class="command-ribbon navbar">
         <div class="ribbon-brand-section">
           <div class="ribbon-logo">
-            <span>mePDF</span>
+            <span>meCraft</span>
           </div>
           <span class="ribbon-doc-info" id="ribbon-doc-info" style="display: none;"></span>
         </div>
@@ -153,7 +178,7 @@ class MePdfApp {
         </div>
 
         <div class="ribbon-right-section nav-actions">
-          <button class="btn btn-secondary btn-sm" id="ribbon-add-files-btn" title="Add files to workspace">
+          <button class="btn btn-secondary btn-sm" id="ribbon-add-files-btn" title="Add files to workspace (Ctrl+O)">
             <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
             <span id="ribbon-add-files-label">${t('toolbarAddFiles') || 'Add'}</span>
           </button>
@@ -179,29 +204,8 @@ class MePdfApp {
 
       <!-- Main Workspace Container -->
       <main class="workspace-main" id="workspace-main">
-        <!-- Landing Dropzone Area -->
-        <div id="dropzone-area" class="dropzone-container">
-          <div class="dropzone-icon">
-            <i data-lucide="upload" style="width: 36px; height: 36px;"></i>
-          </div>
-          <h2 class="dropzone-title" id="dropzone-title-el">${t('dropzoneTitle')}</h2>
-          <p class="dropzone-desc" id="dropzone-desc-el">${t('dropzoneDesc')}</p>
-          <button class="btn btn-primary" id="dropzone-browse-btn">
-            <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
-            <span id="dropzone-select-label">${t('dropzoneSelectBtn')}</span>
-          </button>
-          <div class="dropzone-pills">
-            <span class="privacy-pill">
-              <i data-lucide="shield-check" style="width: 13px; height: 13px; color: var(--success);"></i>
-              <span id="dropzone-zero-upload-label">${t('dropzoneZeroUpload')}</span>
-            </span>
-            <span class="privacy-pill" id="dropzone-unlimited-label">${t('dropzoneUnlimitedSize')}</span>
-            <span class="privacy-pill" id="dropzone-formats-label">${t('dropzoneSupportedFormats')}</span>
-          </div>
-        </div>
-
-        <!-- 3-Pane Studio Cockpit Workspace -->
-        <div id="cockpit-workspace" class="cockpit-workspace" style="display: none;">
+        <!-- 3-Pane Studio Cockpit Workspace (Active Desktop Shell) -->
+        <div id="cockpit-workspace" class="cockpit-workspace">
           <div id="cockpit-filmstrip-pane" class="cockpit-filmstrip"></div>
           <div id="cockpit-resizer-left" class="cockpit-resizer cockpit-resizer-left" title="Drag to resize filmstrip (Double-click to reset)" role="separator" aria-orientation="vertical">
             <div class="resizer-handle-pill"></div>
@@ -217,6 +221,9 @@ class MePdfApp {
         <div id="workspace-controls" style="display: none;"></div>
         <div id="workspace-grid" style="display: none;"></div>
       </main>
+
+      <!-- Bottom Professional Status Bar -->
+      <div id="app-statusbar" class="app-statusbar-container"></div>
     `;
 
     this.refreshIcons();
@@ -245,6 +252,7 @@ class MePdfApp {
 
     // 2. Live Canvas Stage
     this.cockpitCanvas = new CockpitCanvas(canvasPane, {
+      maxZoom: 4.0,
       onPrevPage: () => this.navigatePage(-1),
       onNextPage: () => this.navigatePage(1),
       onRotateActive: (deg) => {
@@ -253,11 +261,21 @@ class MePdfApp {
       onZoomChange: (zoom) => {
         const val = this.appEl.querySelector<HTMLElement>('#ribbon-zoom-val');
         if (val) val.textContent = `${Math.round(zoom * 100)}%`;
+        this.statusBar?.setZoom(zoom);
       },
       onOpenLightbox: () => {
         if (this.activePageId) {
           this.lightboxModal?.open(this.activePageId, this.pages, this.documents);
         }
+      },
+      onOpenFile: () => {
+        void this.openFilesViaBridge();
+      },
+      onImagesToPdf: () => {
+        void this.handleTabSwitch('img2pdf');
+      },
+      onFilesDropped: (droppedFiles) => {
+        void this.handleFiles(droppedFiles);
       },
     });
 
@@ -310,6 +328,12 @@ class MePdfApp {
       onExtractText: () => {
         this.handleTabSwitch('extract-text');
       },
+      onOpenPhotoStudio: () => {
+        void this.openPhotoStudio('new');
+      },
+      onEnhanceActivePage: () => {
+        void this.openPhotoStudio('active-page');
+      },
     });
 
     // 4. Cockpit Resizer Splitters
@@ -336,7 +360,7 @@ class MePdfApp {
       onRotateAll: (deg) => this.rotateAll(deg),
       onDeleteSelected: () => this.deleteSelected(),
       onOpenSplit: () => this.openSplitModal(),
-      onAddFiles: () => this.fileInput.click(),
+      onAddFiles: () => void this.openFilesViaBridge(),
       onClearAll: () => this.clearAll(),
     });
 
@@ -346,7 +370,81 @@ class MePdfApp {
       onDeletePage: (pageId) => this.deleteSinglePage(pageId),
       onReorder: (from, to) => this.reorderPages(from, to),
       onZoomPage: (pageId) => this.lightboxModal?.open(pageId, this.pages, this.documents),
-      onFilesDropped: (droppedFiles) => this.handleFiles(droppedFiles),
+      onFilesDropped: (droppedFiles) => void this.handleFiles(droppedFiles),
+    });
+
+    // 5. Desktop Studio MenuBar
+    const menuBarEl = this.appEl.querySelector<HTMLElement>('#app-menubar')!;
+    this.menuBar = new MenuBar(menuBarEl, {
+      onOpenFile: () => void this.openFilesViaBridge(),
+      onAddFiles: () => void this.openFilesViaBridge(),
+      onSaveFile: () => void this.exportCurrentDocument({ forceSaveAs: false }),
+      onExportAs: () => void this.exportCurrentDocument({ forceSaveAs: true }),
+      onClearWorkspace: () => this.clearAll(),
+      onUndo: () => this.undoDelete(),
+      onSelectAll: () => this.selectAll(),
+      onDeselectAll: () => this.deselectAll(),
+      onInvertSelection: () => this.invertSelection(),
+      onDeleteSelected: () => this.deleteSelected(),
+      onRotateSelected: (deg) => this.rotateSelected(deg),
+      onDuplicatePage: () => this.duplicateActivePage(),
+      onSetViewMode: (mode) => {
+        this.activeViewMode = mode;
+        this.updateViewButtons();
+        this.updateUI();
+      },
+      onZoomIn: () => {
+        if (this.cockpitCanvas) {
+          this.cockpitCanvas.setZoom(this.cockpitCanvas.getZoom() + 0.15);
+        }
+      },
+      onZoomOut: () => {
+        if (this.cockpitCanvas) {
+          this.cockpitCanvas.setZoom(this.cockpitCanvas.getZoom() - 0.15);
+        }
+      },
+      onResetZoom: () => {
+        this.cockpitCanvas?.fitPage();
+      },
+      onFitWidth: () => {
+        this.cockpitCanvas?.fitWidth();
+      },
+      onOpenTool: (tool) => {
+        void this.handleTabSwitch(tool);
+      },
+      onOpenPhotoStudio: () => {
+        void this.openPhotoStudio('new');
+      },
+      onEnhancePageImage: () => {
+        void this.openPhotoStudio('active-page');
+      },
+      onOpenHelpModal: () => {
+        this.showShortcutsModal();
+      },
+      onOpenAboutModal: () => {
+        this.showAboutModal();
+      },
+      onToggleLanguage: () => {
+        const nextLang = getLanguage() === 'th' ? 'en' : 'th';
+        setLanguage(nextLang);
+        toast.show(t('toastLanguageSwitched'), 'info');
+      },
+    });
+
+    // 6. Professional Bottom Status Bar
+    const statusBarEl = this.appEl.querySelector<HTMLElement>('#app-statusbar')!;
+    this.statusBar = new StatusBar(statusBarEl, {
+      onZoomChange: (zoom) => {
+        if (this.cockpitCanvas) {
+          this.cockpitCanvas.setZoom(zoom);
+        }
+      },
+      onFitWidth: () => {
+        this.cockpitCanvas?.fitWidth();
+      },
+      onFitPage: () => {
+        this.cockpitCanvas?.fitPage();
+      },
     });
   }
 
@@ -419,21 +517,15 @@ class MePdfApp {
   }
 
   private initEventListeners(): void {
-    // Browse & Dropzone
-    const browseBtn = this.appEl.querySelector('#dropzone-browse-btn');
-    browseBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.fileInput.click();
-    });
-
+    // Browse & Add files via Platform Bridge
     const ribbonAddBtn = this.appEl.querySelector('#ribbon-add-files-btn');
     ribbonAddBtn?.addEventListener('click', () => {
-      this.fileInput.click();
+      void this.openFilesViaBridge();
     });
 
     const dropzoneArea = this.appEl.querySelector('#dropzone-area');
     dropzoneArea?.addEventListener('click', () => {
-      this.fileInput.click();
+      void this.openFilesViaBridge();
     });
 
     this.fileInput.addEventListener('change', async () => {
@@ -451,18 +543,21 @@ class MePdfApp {
     // Window drag & drop
     window.addEventListener('dragover', (e) => {
       e.preventDefault();
-      dropzoneArea?.classList.add('drag-active');
+      const workbenchDropzone = this.appEl.querySelector('#workbench-dropzone');
+      workbenchDropzone?.classList.add('drag-active');
     });
 
     window.addEventListener('dragleave', (e) => {
       if (e.relatedTarget === null) {
-        dropzoneArea?.classList.remove('drag-active');
+        const workbenchDropzone = this.appEl.querySelector('#workbench-dropzone');
+        workbenchDropzone?.classList.remove('drag-active');
       }
     });
 
     window.addEventListener('drop', async (e) => {
       e.preventDefault();
-      dropzoneArea?.classList.remove('drag-active');
+      const workbenchDropzone = this.appEl.querySelector('#workbench-dropzone');
+      workbenchDropzone?.classList.remove('drag-active');
       if (e.dataTransfer && e.dataTransfer.files.length > 0) {
         await this.handleFiles(Array.from(e.dataTransfer.files));
       }
@@ -478,15 +573,13 @@ class MePdfApp {
 
     cockpitViewBtn?.addEventListener('click', () => {
       this.activeViewMode = 'cockpit';
-      cockpitViewBtn.classList.add('active');
-      gridViewBtn?.classList.remove('active');
+      this.updateViewButtons();
       this.updateUI();
     });
 
     gridViewBtn?.addEventListener('click', () => {
       this.activeViewMode = 'grid';
-      gridViewBtn.classList.add('active');
-      cockpitViewBtn?.classList.remove('active');
+      this.updateViewButtons();
       this.updateUI();
     });
 
@@ -514,40 +607,6 @@ class MePdfApp {
       const nextLang = getLanguage() === 'th' ? 'en' : 'th';
       setLanguage(nextLang);
       toast.show(t('toastLanguageSwitched'), 'info');
-    });
-
-    // Keyboard shortcuts
-    window.addEventListener('keydown', (e) => {
-      if (
-        modal.isOpen() ||
-        progressOverlay.isOpen() ||
-        (this.lightboxModal && this.lightboxModal.isOpen())
-      ) return;
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        this.exportCurrentDocument();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-        const activeTag = document.activeElement?.tagName.toLowerCase();
-        if (activeTag !== 'input' && activeTag !== 'textarea') {
-          e.preventDefault();
-          this.selectAll();
-        }
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        const activeTag = document.activeElement?.tagName.toLowerCase();
-        if (activeTag !== 'input' && activeTag !== 'textarea') {
-          e.preventDefault();
-          this.undoDelete();
-        }
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const activeTag = document.activeElement?.tagName.toLowerCase();
-        if (activeTag !== 'input' && activeTag !== 'textarea') {
-          this.deleteSelected();
-        }
-      }
     });
 
     // PWA Install Prompt
@@ -678,6 +737,7 @@ class MePdfApp {
             pageCount,
             fileBytes: bytes,
             password: enteredPassword,
+            nativePath: (file as any).nativePath || undefined,
           });
 
           for (let pNum = 1; pNum <= pageCount; pNum++) {
@@ -752,7 +812,9 @@ class MePdfApp {
 
   private updateUI(): void {
     const hasPages = this.pages.length > 0;
-    const dropzoneArea = this.appEl.querySelector<HTMLElement>('#dropzone-area')!;
+    const dropzoneArea = this.appEl.querySelector<HTMLElement>('#dropzone-area');
+    if (dropzoneArea) dropzoneArea.style.display = 'none';
+
     const cockpitWorkspace = this.appEl.querySelector<HTMLElement>('#cockpit-workspace')!;
     const controlsContainer = this.appEl.querySelector<HTMLElement>('#workspace-controls')!;
     const gridContainer = this.appEl.querySelector<HTMLElement>('#workspace-grid')!;
@@ -766,12 +828,37 @@ class MePdfApp {
       ribbonUndoBtn.style.display = this.undoStack.length > 0 ? 'inline-flex' : 'none';
     }
 
+    const selectedCount = this.pages.filter((p) => p.selected).length;
+
+    // Check activePageId validity
+    if (hasPages && (!this.activePageId || !this.pages.some((p) => p.id === this.activePageId))) {
+      this.activePageId = this.pages[0]?.id || null;
+    } else if (!hasPages) {
+      this.activePageId = null;
+    }
+
+    // Switch View Mode
+    if (this.activeViewMode === 'cockpit') {
+      cockpitWorkspace.style.display = 'grid';
+      controlsContainer.style.display = 'none';
+      gridContainer.style.display = 'none';
+
+      this.cockpitFilmstrip?.setPages(this.pages, this.activePageId || undefined);
+      this.syncCockpitCanvas();
+      this.cockpitInspector?.setState({ selectedCount, totalPages: this.pages.length });
+    } else {
+      cockpitWorkspace.style.display = 'none';
+      controlsContainer.style.display = 'block';
+      gridContainer.style.display = 'block';
+
+      this.toolbar?.updateState(this.pages.length, selectedCount);
+      this.visualGrid?.setPages(this.pages);
+    }
+
+    // Export button state
     if (hasPages) {
-      dropzoneArea.style.display = 'none';
       exportBtn.disabled = false;
       exportBtn.style.opacity = '1';
-
-      const selectedCount = this.pages.filter((p) => p.selected).length;
       exportLabel.textContent = t('navExportCount', { count: this.pages.length });
 
       // Update Ribbon Document Info Badge
@@ -781,44 +868,57 @@ class MePdfApp {
         const primaryDoc = distinctDocNames.length === 1 ? distinctDocNames[0] : `${distinctDocNames.length} Documents`;
         ribbonDocInfo.textContent = `${primaryDoc} • ${this.pages.length}p`;
       }
-
-      // Check activePageId validity
-      if (!this.activePageId || !this.pages.some((p) => p.id === this.activePageId)) {
-        this.activePageId = this.pages[0]?.id || null;
-      }
-
-      // Switch View Mode
-      if (this.activeViewMode === 'cockpit') {
-        cockpitWorkspace.style.display = 'grid';
-        controlsContainer.style.display = 'none';
-        gridContainer.style.display = 'none';
-
-        this.cockpitFilmstrip?.setPages(this.pages, this.activePageId || undefined);
-        this.syncCockpitCanvas();
-        this.cockpitInspector?.setState({ selectedCount, totalPages: this.pages.length });
-      } else {
-        cockpitWorkspace.style.display = 'none';
-        controlsContainer.style.display = 'block';
-        gridContainer.style.display = 'block';
-
-        this.toolbar?.updateState(this.pages.length, selectedCount);
-        this.visualGrid?.setPages(this.pages);
-      }
     } else {
-      dropzoneArea.style.display = 'flex';
-      cockpitWorkspace.style.display = 'none';
-      controlsContainer.style.display = 'none';
-      gridContainer.style.display = 'none';
-      if (ribbonDocInfo) ribbonDocInfo.style.display = 'none';
-
       exportBtn.disabled = true;
       exportBtn.style.opacity = '0.5';
       exportLabel.textContent = t('navExport');
+      if (ribbonDocInfo) ribbonDocInfo.style.display = 'none';
+    }
 
-      this.activePageId = null;
-      this.visualGrid?.setPages([]);
-      this.cockpitFilmstrip?.setPages([]);
-      this.cockpitCanvas?.setActivePage(null, 0, 0);
+    // Calculate active page dimensions label
+    let activeFormatLabel: string | undefined = undefined;
+    const curIdx = this.pages.findIndex((p) => p.id === this.activePageId);
+    const activePage = curIdx >= 0 ? this.pages[curIdx] : null;
+    if (activePage) {
+      const rot = activePage.rotation % 360;
+      const isRot = rot === 90 || rot === 270;
+      const pw = Math.round(isRot ? activePage.height : activePage.width);
+      const ph = Math.round(isRot ? activePage.width : activePage.height);
+      if (Math.abs(pw - 595) < 5 && Math.abs(ph - 842) < 5) {
+        activeFormatLabel = 'A4 595 × 842 pt';
+      } else if (Math.abs(pw - 842) < 5 && Math.abs(ph - 595) < 5) {
+        activeFormatLabel = 'A4 Landscape';
+      } else {
+        activeFormatLabel = `${pw} × ${ph} pt`;
+      }
+    }
+
+    // Update MenuBar state
+    this.menuBar?.updateState({
+      hasDocument: hasPages,
+      canUndo: this.undoStack.length > 0,
+      viewMode: this.activeViewMode,
+      selectedCount,
+      totalPageCount: this.pages.length,
+    });
+
+    // Update StatusBar state
+    this.statusBar?.updateState({
+      currentPage: curIdx >= 0 ? curIdx + 1 : 0,
+      totalPageCount: this.pages.length,
+      pageSizeLabel: activeFormatLabel,
+      selectedCount,
+      isEncrypted: Boolean(hasPages && Array.from(this.documents.values()).some((d) => Boolean(d.password))),
+      zoom: this.cockpitCanvas?.getZoom() ?? 1.0,
+    });
+
+    // Update Desktop Window Title
+    if (hasPages) {
+      const distinctNames = Array.from(new Set(this.pages.map((p) => p.docName)));
+      const primaryDoc = distinctNames.length === 1 ? distinctNames[0] : `${distinctNames.length} Documents`;
+      void platformBridge.setWindowTitle(`${primaryDoc} — meCraft Studio`);
+    } else {
+      void platformBridge.setWindowTitle('meCraft Studio');
     }
 
     this.triggerAutoSave();
@@ -1044,7 +1144,7 @@ class MePdfApp {
   // ==========================================
   // EXPORT / SAVE PIPELINE
   // ==========================================
-  private async exportCurrentDocument(): Promise<void> {
+  private async exportCurrentDocument(options?: { forceSaveAs?: boolean }): Promise<void> {
     if (this.pages.length === 0) {
       toast.show(t('toastNoPagesToExport'), 'info');
       return;
@@ -1057,26 +1157,137 @@ class MePdfApp {
       });
       progressOverlay.hide();
 
-      let exportFilename = 'mepdf_merged.pdf';
+      let exportFilename = 'mecraft_merged.pdf';
       const distinctDocIds = new Set(this.pages.map((p) => p.docId));
+      let singleDoc: DocumentMetadata | null = null;
       if (distinctDocIds.size === 1) {
         const docId = distinctDocIds.values().next().value;
-        const doc = docId ? this.documents.get(docId) : null;
-        if (doc?.filename) {
-          const cleanName = doc.filename
+        singleDoc = docId ? this.documents.get(docId) ?? null : null;
+        if (singleDoc?.filename) {
+          const cleanName = singleDoc.filename
             .replace(/\.pdf$/i, '')
             .replace(/\.(jpe?g|png|webp|avif|bmp|gif)$/i, '');
           exportFilename = `${cleanName}_edited.pdf`;
         }
       }
 
-      downloadBytes(mergedBytes, exportFilename);
-      toast.show(t('toastExportSuccess', { count: this.pages.length }), 'success');
+      // Direct overwrite path when running in Tauri and not forced to Save As
+      if (!options?.forceSaveAs && platformBridge.isTauri && singleDoc?.nativePath) {
+        const success = await platformBridge.writeNativeFile(singleDoc.nativePath, mergedBytes);
+        if (success) {
+          toast.show(
+            getLanguage() === 'th'
+              ? `บันทึกทับไฟล์สำเร็จ: ${singleDoc.filename}`
+              : `Saved directly to ${singleDoc.filename}`,
+            'success'
+          );
+          return;
+        }
+      }
+
+      const saved = await platformBridge.saveFileDialog(exportFilename, mergedBytes);
+      if (saved) {
+        toast.show(t('toastExportSuccess', { count: this.pages.length }), 'success');
+      }
     } catch (err: unknown) {
       progressOverlay.hide();
       const msg = err instanceof Error ? err.message : String(err);
       toast.show(`Export failed: ${msg}`, 'error');
     }
+  }
+
+  private async openFilesViaBridge(): Promise<void> {
+    const files = await platformBridge.openFileDialog();
+    if (files && files.length > 0) {
+      await this.handleFiles(files);
+    }
+  }
+
+  private updateViewButtons(): void {
+    const cockpitViewBtn = this.appEl.querySelector<HTMLButtonElement>('#ribbon-view-cockpit-btn');
+    const gridViewBtn = this.appEl.querySelector<HTMLButtonElement>('#ribbon-view-grid-btn');
+    if (this.activeViewMode === 'cockpit') {
+      cockpitViewBtn?.classList.add('active');
+      gridViewBtn?.classList.remove('active');
+    } else {
+      gridViewBtn?.classList.add('active');
+      cockpitViewBtn?.classList.remove('active');
+    }
+  }
+
+  private showShortcutsModal(): void {
+    const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent);
+    const mod = isMac ? '⌘' : 'Ctrl';
+
+    const shortcuts = [
+      { key: `${mod} + O`, desc: 'Open PDF document or images' },
+      { key: `${mod} + S`, desc: 'Save & Export document' },
+      { key: `${mod} + Z`, desc: 'Undo page deletion' },
+      { key: `${mod} + A`, desc: 'Select all pages' },
+      { key: `${mod} + R`, desc: 'Rotate selected pages 90° CW' },
+      { key: `${mod} + D`, desc: 'Duplicate current active page' },
+      { key: 'Del / Backspace', desc: 'Delete selected pages' },
+      { key: 'F1 / F2', desc: 'Toggle Cockpit / Macro Grid view' },
+      { key: `${mod} + Wheel`, desc: 'Smooth cursor-focused zoom' },
+      { key: 'Space + Drag', desc: 'Pan canvas freely' },
+      { key: `${mod} + 0`, desc: 'Reset zoom to 100%' },
+      { key: `${mod} + 1`, desc: 'Fit to page width' },
+      { key: 'Esc', desc: 'Close dialogs or deselect all' },
+    ];
+
+    const bodyHtml = `
+      <div style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 420px; overflow-y: auto; padding-right: 0.25rem;">
+        ${shortcuts
+          .map(
+            (s) => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; border-radius: 6px; background: rgba(255, 255, 255, 0.04); font-size: 0.85rem;">
+            <span>${s.desc}</span>
+            <kbd style="font-family: var(--font-mono); font-size: 0.72rem; background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border-subtle); padding: 2px 7px; border-radius: 4px; color: var(--accent-glow);">${s.key}</kbd>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    `;
+
+    const footerHtml = `
+      <button class="btn btn-primary" id="modal-shortcuts-close">Got it</button>
+    `;
+
+    modal.open('⌨️ Keyboard Shortcuts Map', bodyHtml, footerHtml);
+    document.querySelector('#modal-shortcuts-close')?.addEventListener('click', () => modal.close());
+  }
+
+  private showAboutModal(): void {
+    const isTauri = platformBridge.isTauri;
+    const bodyHtml = `
+      <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1rem; padding: 0.5rem 0;">
+        <div style="width: 56px; height: 56px; border-radius: 14px; background: var(--accent-subtle); display: flex; align-items: center; justify-content: center; color: var(--accent-glow); font-size: 1.5rem; font-weight: 800;">
+          me
+        </div>
+        <div>
+          <h4 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem;">meCraft Studio</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
+            Version 3.1.0 (${isTauri ? 'Native Windows Desktop' : 'Web PWA'})
+          </p>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; max-width: 420px;">
+          100% In-Browser & Native Desktop Creative Suite (PDF & Photo).<br/>
+          Zero server uploads, CamScanner Magic Color, non-destructive cropping, and hardware-accelerated rendering.
+        </p>
+        <div style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; background: rgba(16, 185, 129, 0.1); color: var(--success); font-size: 0.75rem;">
+          <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i>
+          <span>100% Client-Side Privacy Guaranteed</span>
+        </div>
+      </div>
+    `;
+
+    const footerHtml = `
+      <button class="btn btn-primary" id="modal-about-close">Close</button>
+    `;
+
+    modal.open('ℹ️ About meCraft Studio', bodyHtml, footerHtml);
+    document.querySelector('#modal-about-close')?.addEventListener('click', () => modal.close());
   }
 
   private openSplitModal(): void {
@@ -1085,7 +1296,7 @@ class MePdfApp {
       this.resetNavTabToStudio();
       return;
     }
-    let baseFilename = 'mepdf';
+    let baseFilename = 'mecraft';
     const distinctDocIds = new Set(this.pages.map((p) => p.docId));
     if (distinctDocIds.size === 1) {
       const docId = distinctDocIds.values().next().value;
@@ -1282,7 +1493,7 @@ class MePdfApp {
           subject: '',
           keywords: '',
           creator: '',
-          producer: 'mePDF Studio Pure Client-Side',
+          producer: 'meCraft Studio Pure Client-Side',
         },
         true
       );
@@ -1334,7 +1545,7 @@ class MePdfApp {
     });
     progressOverlay.hide();
 
-    const baseName = isSingleDoc ? firstDoc.filename : 'mepdf_workspace.pdf';
+    const baseName = isSingleDoc ? firstDoc.filename : 'mecraft_workspace.pdf';
     return { docBytes: mergedBytes, docName: baseName, password: isSingleDoc ? firstDoc.password : undefined };
   }
 
@@ -1344,6 +1555,174 @@ class MePdfApp {
   private resetNavTabToStudio(): void {
     setHashRoute('studio');
     this.cockpitInspector?.setActiveTab('tools');
+  }
+
+  // ==========================================
+  // PHOTO STUDIO INTEGRATION
+  // ==========================================
+  private async openPhotoStudio(mode: 'active-page' | 'new'): Promise<void> {
+    if (mode === 'active-page') {
+      if (this.pages.length === 0) {
+        this.pendingAction = 'photo-studio';
+        toast.show(t('toastSelectDocFirst'), 'info');
+        this.fileInput.click();
+        return;
+      }
+
+      const activeIdx = this.pages.findIndex((p) => p.id === this.activePageId);
+      const page = activeIdx >= 0 ? this.pages[activeIdx]! : this.pages[0]!;
+      const docMeta = this.documents.get(page.docId);
+
+      let imageSource: string | HTMLCanvasElement = page.thumbnailDataUrl;
+      if (docMeta && docMeta.fileBytes) {
+        try {
+          const pdfDoc = await loadPdfDocument(docMeta.fileBytes, docMeta.password);
+          try {
+            const canvas = await renderPageToCanvas(pdfDoc, page.pageIndex + 1, 2.0, page.rotation);
+            imageSource = canvas;
+          } finally {
+            await destroyPdfDocument(pdfDoc);
+          }
+        } catch (err) {
+          console.warn('Fallback to page thumbnail for photo studio:', err);
+          imageSource = page.thumbnailDataUrl;
+        }
+      }
+
+      await this.photoStudioModal?.open({
+        imageSource,
+        pageIndex: activeIdx >= 0 ? activeIdx : 0,
+        totalPages: this.pages.length,
+        docName: page.docName,
+        docId: page.docId,
+      });
+      return;
+    }
+
+    // New photo workflow: pick an image file to edit
+    const imgPicker = document.createElement('input');
+    imgPicker.type = 'file';
+    imgPicker.accept = 'image/*';
+    imgPicker.style.display = 'none';
+    imgPicker.onchange = async () => {
+      const file = imgPicker.files?.[0];
+      if (!file) return;
+      progressOverlay.show('Loading image into Photo Studio...');
+      try {
+        const imgBytes = await readFileAsUint8Array(file);
+        const blob = new Blob([imgBytes as unknown as BlobPart], {
+          type: file.type || 'image/png',
+        });
+        progressOverlay.hide();
+        await this.photoStudioModal?.open({
+          imageSource: blob,
+          docName: file.name,
+        });
+      } catch (err: unknown) {
+        progressOverlay.hide();
+        const msg = err instanceof Error ? err.message : String(err);
+        toast.show(`Failed to load image: ${msg}`, 'error');
+      } finally {
+        imgPicker.remove();
+      }
+    };
+    document.body.appendChild(imgPicker);
+    imgPicker.click();
+  }
+
+  private async handlePhotoStudioApply(result: PhotoStudioApplyResult): Promise<void> {
+    progressOverlay.show('Applying enhanced photo to document page...');
+    try {
+      const ext = result.format === 'image/jpeg' ? 'jpg' : result.format === 'image/webp' ? 'webp' : 'png';
+      const virtualFile = new File([result.blob], `enhanced_page_${Date.now()}.${ext}`, {
+        type: result.format || 'image/png',
+      });
+      const convertedBytes = await imagesToPdf([virtualFile], { pageSize: 'fit' });
+      const newDocId = `doc_photo_${Date.now()}`;
+      const docName = result.docName ? `enhanced_${result.docName}` : 'enhanced_page.pdf';
+      this.documents.set(newDocId, {
+        id: newDocId,
+        filename: docName,
+        size: convertedBytes.byteLength,
+        pageCount: 1,
+        fileBytes: convertedBytes,
+      });
+
+      const targetIdx =
+        typeof result.targetPageIndex === 'number'
+          ? result.targetPageIndex
+          : this.pages.findIndex((p) => p.id === this.activePageId);
+
+      const targetPage = targetIdx >= 0 ? this.pages[targetIdx] : this.pages[0];
+      if (targetPage) {
+        targetPage.docId = newDocId;
+        targetPage.docName = docName;
+        targetPage.pageIndex = 0;
+        targetPage.thumbnailDataUrl = result.dataUrl;
+        targetPage.width = result.width;
+        targetPage.height = result.height;
+        targetPage.rotation = 0;
+      }
+
+      this.updateUI();
+      this.triggerAutoSave();
+      toast.show(t('toastPhotoEnhanced'), 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Failed to apply photo edit: ${msg}`, 'error');
+    } finally {
+      progressOverlay.hide();
+    }
+  }
+
+  private async handlePhotoStudioInsert(result: PhotoStudioApplyResult): Promise<void> {
+    progressOverlay.show('Inserting enhanced photo as new page...');
+    try {
+      const ext = result.format === 'image/jpeg' ? 'jpg' : result.format === 'image/webp' ? 'webp' : 'png';
+      const virtualFile = new File([result.blob], `photo_${Date.now()}.${ext}`, {
+        type: result.format || 'image/png',
+      });
+      const convertedBytes = await imagesToPdf([virtualFile], { pageSize: 'fit' });
+      const newDocId = `doc_photo_${Date.now()}`;
+      const docName = `photo_page_${Date.now()}.pdf`;
+      this.documents.set(newDocId, {
+        id: newDocId,
+        filename: docName,
+        size: convertedBytes.byteLength,
+        pageCount: 1,
+        fileBytes: convertedBytes,
+      });
+
+      const newPage: PDFPageItem = {
+        id: `page_photo_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        docId: newDocId,
+        docName,
+        pageIndex: 0,
+        displayPageNumber: 1,
+        rotation: 0,
+        thumbnailDataUrl: result.dataUrl,
+        width: result.width,
+        height: result.height,
+        selected: false,
+      };
+
+      const curIdx = this.pages.findIndex((p) => p.id === this.activePageId);
+      if (curIdx >= 0 && curIdx < this.pages.length) {
+        this.pages.splice(curIdx + 1, 0, newPage);
+      } else {
+        this.pages.push(newPage);
+      }
+
+      this.activePageId = newPage.id;
+      this.updateUI();
+      this.triggerAutoSave();
+      toast.show(t('toastPhotoInserted'), 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.show(`Failed to insert photo page: ${msg}`, 'error');
+    } finally {
+      progressOverlay.hide();
+    }
   }
 
   private async handleTabSwitch(tab: string | null): Promise<void> {
@@ -1369,6 +1748,16 @@ class MePdfApp {
       }
       setHashRoute('split');
       this.openSplitModal();
+      return;
+    }
+
+    if (tab === 'photo-studio' || tab === 'photo') {
+      setHashRoute('photo-studio');
+      if (this.pages.length > 0) {
+        void this.openPhotoStudio('active-page');
+      } else {
+        void this.openPhotoStudio('new');
+      }
       return;
     }
 
@@ -1467,6 +1856,21 @@ class MePdfApp {
       console.warn('Failed to restore workspace session:', err);
     }
 
+    // Check if a file was passed via Windows Explorer file association
+    if (platformBridge.isTauri) {
+      try {
+        const cliPath = await platformBridge.getInitialPdfPath();
+        if (cliPath) {
+          const cliFile = await platformBridge.readFileFromPath(cliPath);
+          if (cliFile) {
+            await this.handleFiles([cliFile]);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load initial PDF from CLI args:', err);
+      }
+    }
+
     const initialRoute = getCurrentRoute();
     if (initialRoute && initialRoute !== 'studio') {
       await this.handleTabSwitch(initialRoute);
@@ -1529,6 +1933,8 @@ class MePdfApp {
     this.cockpitInspector?.render();
     this.toolbar?.render();
     this.visualGrid?.setPages(this.pages);
+    this.menuBar?.render();
+    this.statusBar?.render();
   }
 
   public getCockpitResizer(): CockpitResizer | null {
@@ -1537,7 +1943,7 @@ class MePdfApp {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  new MePdfApp();
+  new MeCraftApp();
 });
 
 if ('serviceWorker' in navigator) {
@@ -1547,7 +1953,7 @@ if ('serviceWorker' in navigator) {
       toast.show('New version available. Reload to update.', 'info');
     },
     onOfflineReady() {
-      toast.show('mePDF is ready for offline use!', 'success');
+      toast.show('meCraft is ready for offline use!', 'success');
     },
   });
 }

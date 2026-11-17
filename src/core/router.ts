@@ -9,6 +9,7 @@ export type ToolRoute =
   | 'img2pdf'
   | 'pdf2img'
   | 'extract-text'
+  | 'photo-studio'
   | 'account'
   | 'cloud-library';
 
@@ -30,6 +31,8 @@ export const HASH_TO_ROUTE_MAP: Record<string, ToolRoute> = {
   '#/images-to-pdf': 'img2pdf',
   '#/img2pdf': 'img2pdf',
   '#/extract-text': 'extract-text',
+  '#/photo-studio': 'photo-studio',
+  '#/photo': 'photo-studio',
   '#/account': 'account',
   '#/auth': 'account',
   '#/cloud-library': 'cloud-library',
@@ -47,6 +50,7 @@ export const ROUTE_TO_HASH_MAP: Record<ToolRoute, string> = {
   img2pdf: '#/images-to-pdf',
   pdf2img: '#/pdf-to-images',
   'extract-text': '#/extract-text',
+  'photo-studio': '#/photo-studio',
   account: '#/account',
   'cloud-library': '#/cloud-library',
 };

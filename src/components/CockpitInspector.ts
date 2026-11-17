@@ -65,6 +65,9 @@ export interface CockpitInspectorEvents {
   onImagesToPdf: () => void;
   onPdfToImages: () => void;
   onExtractText: () => void;
+  // Photo Studio
+  onOpenPhotoStudio?: () => void;
+  onEnhanceActivePage?: () => void;
 }
 
 export class CockpitInspector {
@@ -241,6 +244,23 @@ export class CockpitInspector {
 
   private renderToolsTab(): string {
     return `
+      <div class="inspector-section">
+        <h4 class="inspector-section-title">Photo & Document Studio</h4>
+        <p class="inspector-help-text">Whiten paper backgrounds, remove noise, and crop scanned pages with non-destructive studio algorithms.</p>
+        <div class="inspector-btn-grid" style="grid-template-columns: 1fr;">
+          <button class="btn btn-secondary w-full" id="insp-btn-enhance-active">
+            <i data-lucide="sparkles" style="width: 14px; height: 14px; color: var(--primary);"></i>
+            <span>Enhance Active Page Image...</span>
+          </button>
+          <button class="btn btn-secondary w-full" id="insp-btn-open-photo-studio">
+            <i data-lucide="image" style="width: 14px; height: 14px;"></i>
+            <span>Open Photo Studio...</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="inspector-divider"></div>
+
       <div class="inspector-section">
         <h4 class="inspector-section-title">Page Manipulation</h4>
         <p class="inspector-help-text">Rotate, duplicate, or split pages directly in the cockpit.</p>
@@ -610,6 +630,12 @@ export class CockpitInspector {
 
     // Tab-specific handlers
     if (this.activeTab === 'tools') {
+      this.container.querySelector('#insp-btn-enhance-active')?.addEventListener('click', () => {
+        this.events.onEnhanceActivePage?.();
+      });
+      this.container.querySelector('#insp-btn-open-photo-studio')?.addEventListener('click', () => {
+        this.events.onOpenPhotoStudio?.();
+      });
       this.container.querySelector('#insp-btn-rotate-sel')?.addEventListener('click', () => {
         this.events.onRotateSelected(90);
       });

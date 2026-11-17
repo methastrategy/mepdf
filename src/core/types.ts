@@ -18,6 +18,7 @@ export interface DocumentMetadata {
   pageCount: number;
   fileBytes: Uint8Array;
   password?: string;
+  nativePath?: string;
 }
 
 export type CompressionPreset = 'screen' | 'ebook' | 'printer' | 'custom';

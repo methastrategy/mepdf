@@ -426,7 +426,7 @@ describe('Phase 2B - Cloud & Auth Service Layer', () => {
 
     it('provides complete Thai and English translations for Phase 2B keys', () => {
       setLanguage('en');
-      expect(t('authModalTitleSignIn')).toBe('Sign In to mePDF');
+      expect(t('authModalTitleSignIn')).toBe('Sign In to meCraft');
       expect(t('authGoogleBtn')).toBe('Continue with Google');
       expect(t('accountTierFree')).toBe('FREE');
       expect(t('accountTierPro')).toBe('PRO');
@@ -434,7 +434,7 @@ describe('Phase 2B - Cloud & Auth Service Layer', () => {
       expect(t('saveCloudBtnToolbar')).toBe('Save to Cloud');
 
       setLanguage('th');
-      expect(t('authModalTitleSignIn')).toBe('เข้าสู่ระบบ mePDF');
+      expect(t('authModalTitleSignIn')).toBe('เข้าสู่ระบบ meCraft');
       expect(t('authGoogleBtn')).toBe('เข้าสู่ระบบด้วย Google');
       expect(t('accountTierFree')).toBe('FREE');
       expect(t('accountTierPro')).toBe('PRO');

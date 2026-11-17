@@ -86,7 +86,11 @@ export class CockpitFilmstrip {
         </div>
 
         <div class="filmstrip-list" id="filmstrip-list-container">
-          ${this.pages
+          ${this.pages.length === 0 ? `
+            <div class="filmstrip-empty-hint">
+              <span class="filmstrip-empty-text">No document open</span>
+            </div>
+          ` : this.pages
             .map((page, index) => this.renderCard(page, index))
             .join('')}
         </div>
