@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
+import { PDFDocument, PDFName, StandardFonts, rgb, degrees } from 'pdf-lib';
 import { PDFDocument as PDFDocumentEncrypt } from 'pdf-lib-plus-encrypt';
 import type {
   WatermarkOptions,
@@ -508,6 +508,10 @@ async function executeMetadata(
     doc.setKeywords([]);
     doc.setCreator('');
     doc.setProducer('');
+    doc.setCreationDate(new Date(0));
+    doc.setModificationDate(new Date(0));
+    doc.catalog.delete(PDFName.of('Metadata'));
+    doc.catalog.delete(PDFName.of('PieceInfo'));
   } else {
     if (metadata.title !== undefined) doc.setTitle(metadata.title);
     if (metadata.author !== undefined) doc.setAuthor(metadata.author);

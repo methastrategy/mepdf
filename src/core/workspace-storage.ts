@@ -17,7 +17,7 @@ export interface StoredSessionPayload {
     pageIndex: number;
     displayPageNumber: number;
     rotation: number;
-    thumbnailDataUrl: string;
+    thumbnailDataUrl?: string;
     width: number;
     height: number;
     selected?: boolean;
@@ -50,6 +50,17 @@ interface LegacyStoredWorkspaceData {
 // In-memory decoupled store for non-IndexedDB / Node test environments
 let inMemorySession: StoredSessionPayload | null = null;
 const inMemoryDocuments = new Map<string, StoredDocumentRecord>();
+
+export interface DocSignature {
+  size: number;
+  byteRef: Uint8Array;
+  filename?: string;
+  pageCount?: number;
+  password?: string;
+}
+
+// Tracks persisted document byte references and properties to avoid redundant writes
+const persistedDocSignatures = new Map<string, DocSignature>();
 
 function isIndexedDBAvailable(): boolean {
   try {
@@ -105,6 +116,7 @@ export async function saveWorkspaceState(
   const docList = Array.isArray(documents) ? documents : Array.from(documents.values());
   const activeDocIds = new Set(pages.map((p) => p.docId));
 
+  // Omit heavy 1600px thumbnailDataUrl base64 strings to eliminate session storage bloat
   const storedPages: StoredSessionPayload['pages'] = pages.map((page) => ({
     id: page.id,
     docId: page.docId,
@@ -112,7 +124,6 @@ export async function saveWorkspaceState(
     pageIndex: page.pageIndex,
     displayPageNumber: page.displayPageNumber,
     rotation: page.rotation,
-    thumbnailDataUrl: page.thumbnailDataUrl,
     width: page.width,
     height: page.height,
     selected: false,
@@ -128,21 +139,40 @@ export async function saveWorkspaceState(
   // Fallback to in-memory decoupled store
   if (!isIndexedDBAvailable()) {
     inMemorySession = sessionPayload;
-    // Store active docs
+    // Store active docs only when new or modified
     for (const doc of docList) {
-      inMemoryDocuments.set(doc.id, {
-        id: doc.id,
-        filename: doc.filename,
-        size: doc.size,
-        pageCount: doc.pageCount,
-        fileBytes: doc.fileBytes,
-        password: doc.password,
-      });
+      const existing = inMemoryDocuments.get(doc.id);
+      const isModified =
+        !existing ||
+        existing.fileBytes !== doc.fileBytes ||
+        existing.size !== doc.size ||
+        existing.filename !== doc.filename ||
+        existing.pageCount !== doc.pageCount ||
+        existing.password !== doc.password;
+
+      if (isModified) {
+        inMemoryDocuments.set(doc.id, {
+          id: doc.id,
+          filename: doc.filename,
+          size: doc.size,
+          pageCount: doc.pageCount,
+          fileBytes: doc.fileBytes,
+          password: doc.password,
+        });
+        persistedDocSignatures.set(doc.id, {
+          size: doc.size,
+          byteRef: doc.fileBytes,
+          filename: doc.filename,
+          pageCount: doc.pageCount,
+          password: doc.password,
+        });
+      }
     }
     // Prune unused docs
     for (const id of inMemoryDocuments.keys()) {
       if (!activeDocIds.has(id)) {
         inMemoryDocuments.delete(id);
+        persistedDocSignatures.delete(id);
       }
     }
     return true;
@@ -155,33 +185,68 @@ export async function saveWorkspaceState(
       const sessionStore = tx.objectStore(STORE_SESSIONS);
       const docStore = tx.objectStore(STORE_DOCUMENTS);
 
-      // 1. Put active session metadata
+      const stagedSignatures = new Map<string, DocSignature>();
+      const stagedDeletions = new Set<string>();
+
+      // 1. Put active session metadata (lightweight, < 10 KB)
       sessionStore.put(sessionPayload, SESSION_KEY);
 
-      // 2. Put any new / updated document bytes
-      for (const doc of docList) {
-        docStore.put({
-          id: doc.id,
-          filename: doc.filename,
-          size: doc.size,
-          pageCount: doc.pageCount,
-          fileBytes: doc.fileBytes,
-          password: doc.password,
-        });
-      }
-
-      // 3. Prune deleted documents from document store
+      // 2. Query existing document IDs to avoid repeatedly rewriting unmodified fileBytes
       const allDocsReq = docStore.getAllKeys();
       allDocsReq.onsuccess = () => {
-        const storedKeys = allDocsReq.result as string[];
+        const storedKeys = new Set(allDocsReq.result as string[]);
+
+        // Put only new documents or documents whose bytes or metadata have changed
+        for (const doc of docList) {
+          const sig = persistedDocSignatures.get(doc.id);
+          const isPersisted =
+            storedKeys.has(doc.id) &&
+            sig !== undefined &&
+            sig.byteRef === doc.fileBytes &&
+            sig.size === doc.size &&
+            sig.filename === doc.filename &&
+            sig.pageCount === doc.pageCount &&
+            sig.password === doc.password;
+
+          if (!isPersisted) {
+            docStore.put({
+              id: doc.id,
+              filename: doc.filename,
+              size: doc.size,
+              pageCount: doc.pageCount,
+              fileBytes: doc.fileBytes,
+              password: doc.password,
+            });
+            stagedSignatures.set(doc.id, {
+              size: doc.size,
+              byteRef: doc.fileBytes,
+              filename: doc.filename,
+              pageCount: doc.pageCount,
+              password: doc.password,
+            });
+          }
+        }
+
+        // 3. Prune deleted documents from document store
         for (const key of storedKeys) {
           if (!activeDocIds.has(key)) {
             docStore.delete(key);
+            stagedDeletions.add(key);
           }
         }
       };
 
+      allDocsReq.onerror = () => {
+        console.warn('Failed to query stored doc keys:', allDocsReq.error);
+      };
+
       tx.oncomplete = () => {
+        for (const [id, sig] of stagedSignatures) {
+          persistedDocSignatures.set(id, sig);
+        }
+        for (const key of stagedDeletions) {
+          persistedDocSignatures.delete(key);
+        }
         db.close();
         resolve(true);
       };
@@ -196,14 +261,32 @@ export async function saveWorkspaceState(
     console.warn('IndexedDB save failed, falling back to in-memory:', err);
     inMemorySession = sessionPayload;
     for (const doc of docList) {
-      inMemoryDocuments.set(doc.id, {
-        id: doc.id,
-        filename: doc.filename,
-        size: doc.size,
-        pageCount: doc.pageCount,
-        fileBytes: doc.fileBytes,
-        password: doc.password,
-      });
+      const existing = inMemoryDocuments.get(doc.id);
+      const isModified =
+        !existing ||
+        existing.fileBytes !== doc.fileBytes ||
+        existing.size !== doc.size ||
+        existing.filename !== doc.filename ||
+        existing.pageCount !== doc.pageCount ||
+        existing.password !== doc.password;
+
+      if (isModified) {
+        inMemoryDocuments.set(doc.id, {
+          id: doc.id,
+          filename: doc.filename,
+          size: doc.size,
+          pageCount: doc.pageCount,
+          fileBytes: doc.fileBytes,
+          password: doc.password,
+        });
+        persistedDocSignatures.set(doc.id, {
+          size: doc.size,
+          byteRef: doc.fileBytes,
+          filename: doc.filename,
+          pageCount: doc.pageCount,
+          password: doc.password,
+        });
+      }
     }
     return false;
   }
@@ -224,18 +307,27 @@ export async function loadWorkspaceState(): Promise<{
       for (const id of inMemorySession.docIds) {
         const d = inMemoryDocuments.get(id);
         if (d) {
+          const loadedBytes = d.fileBytes instanceof Uint8Array ? d.fileBytes : new Uint8Array(d.fileBytes);
           docs.push({
             id: d.id,
             filename: d.filename,
             size: d.size,
             pageCount: d.pageCount,
-            fileBytes: d.fileBytes instanceof Uint8Array ? d.fileBytes : new Uint8Array(d.fileBytes),
+            fileBytes: loadedBytes,
+            password: d.password,
+          });
+          persistedDocSignatures.set(d.id, {
+            size: d.size,
+            byteRef: loadedBytes,
+            filename: d.filename,
+            pageCount: d.pageCount,
             password: d.password,
           });
         }
       }
       const pages: PDFPageItem[] = inMemorySession.pages.map((p) => ({
         ...p,
+        thumbnailDataUrl: p.thumbnailDataUrl || '',
         rotation: p.rotation ?? 0,
         selected: false,
       }));
@@ -273,6 +365,7 @@ export async function loadWorkspaceState(): Promise<{
           }));
           const pages: PDFPageItem[] = legacy.pages.map((p) => ({
             ...p,
+            thumbnailDataUrl: p.thumbnailDataUrl || '',
             rotation: p.rotation ?? 0,
             selected: false,
           }));
@@ -302,19 +395,28 @@ export async function loadWorkspaceState(): Promise<{
           req.onsuccess = () => {
             if (req.result) {
               const d = req.result as StoredDocumentRecord;
+              const loadedBytes = d.fileBytes instanceof Uint8Array ? d.fileBytes : new Uint8Array(d.fileBytes);
               docs.push({
                 id: d.id,
                 filename: d.filename,
                 size: d.size,
                 pageCount: d.pageCount,
-                fileBytes: d.fileBytes instanceof Uint8Array ? d.fileBytes : new Uint8Array(d.fileBytes),
+                fileBytes: loadedBytes,
                 password: d.password,
               });
+              persistedDocSignatures.set(d.id, {
+            size: d.size,
+            byteRef: loadedBytes,
+            filename: d.filename,
+            pageCount: d.pageCount,
+            password: d.password,
+          });
             }
             fetched++;
             if (fetched === totalDocs) {
               const pages: PDFPageItem[] = session.pages.map((p) => ({
                 ...p,
+                thumbnailDataUrl: p.thumbnailDataUrl || '',
                 rotation: p.rotation ?? 0,
                 selected: false,
               }));
@@ -326,6 +428,7 @@ export async function loadWorkspaceState(): Promise<{
             if (fetched === totalDocs) {
               const pages: PDFPageItem[] = session.pages.map((p) => ({
                 ...p,
+                thumbnailDataUrl: p.thumbnailDataUrl || '',
                 rotation: p.rotation ?? 0,
                 selected: false,
               }));
@@ -361,6 +464,7 @@ export async function loadWorkspaceState(): Promise<{
 export async function clearWorkspaceState(): Promise<boolean> {
   inMemorySession = null;
   inMemoryDocuments.clear();
+  persistedDocSignatures.clear();
 
   if (!isIndexedDBAvailable()) {
     return true;
@@ -403,4 +507,9 @@ export async function clearWorkspaceState(): Promise<boolean> {
 export function _resetMemoryStore(): void {
   inMemorySession = null;
   inMemoryDocuments.clear();
+  persistedDocSignatures.clear();
+}
+
+export function _isDocPersisted(id: string): boolean {
+  return persistedDocSignatures.has(id);
 }

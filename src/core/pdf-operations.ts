@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb, degrees, type PDFImage } from 'pdf-lib';
+import { PDFDocument, PDFName, StandardFonts, rgb, degrees, type PDFImage } from 'pdf-lib';
 import { PDFDocument as PDFDocumentEncrypt } from 'pdf-lib-plus-encrypt';
 import JSZip from 'jszip';
 import type {
@@ -67,6 +67,26 @@ export async function mergePages(
   }
 
   return await mergedDoc.save();
+}
+
+/**
+ * Synchronizes in-memory document metadata and page item states after a native
+ * file overwrite (e.g. Tauri direct save). Updates fileBytes, size, and pageCount,
+ * and resets page item indices and rotation to align with the newly assembled PDF.
+ */
+export function syncDocumentAfterTauriSave(
+  document: DocumentMetadata,
+  pages: PDFPageItem[],
+  mergedBytes: Uint8Array
+): void {
+  document.fileBytes = mergedBytes;
+  document.size = mergedBytes.byteLength;
+  document.pageCount = pages.length;
+  pages.forEach((page, index) => {
+    page.pageIndex = index;
+    page.displayPageNumber = index + 1;
+    page.rotation = 0;
+  });
 }
 
 /**
@@ -763,6 +783,10 @@ export async function updatePdfMetadata(
     doc.setKeywords([]);
     doc.setCreator('');
     doc.setProducer('');
+    doc.setCreationDate(new Date(0));
+    doc.setModificationDate(new Date(0));
+    doc.catalog.delete(PDFName.of('Metadata'));
+    doc.catalog.delete(PDFName.of('PieceInfo'));
   } else {
     if (metadata.title !== undefined) doc.setTitle(metadata.title);
     if (metadata.author !== undefined) doc.setAuthor(metadata.author);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName } from 'pdf-lib';
 import {
   splitPagesByRanges,
   mergePages,
@@ -467,6 +467,8 @@ describe('PDF Metadata Sanitizer & Editor (getPDFMetadata & updatePdfMetadata)',
     doc.setAuthor('Jane Doe');
     doc.setCreator('Internal Scanner v12');
     doc.setProducer('Proprietary Software');
+    doc.catalog.set(PDFName.of('Metadata'), doc.context.obj('test-xmp-stream'));
+    doc.catalog.set(PDFName.of('PieceInfo'), doc.context.obj('test-piece-info'));
     doc.addPage([300, 300]);
     const originalBytes = await doc.save();
 
@@ -477,5 +479,11 @@ describe('PDF Metadata Sanitizer & Editor (getPDFMetadata & updatePdfMetadata)',
     expect(readCleaned.author).toBe('');
     expect(readCleaned.creator).toBe('');
     expect(readCleaned.producer).toBe('');
+    expect(readCleaned.creationDate?.getTime()).toBe(0);
+    expect(readCleaned.modificationDate?.getTime()).toBe(0);
+
+    const reloaded = await PDFDocument.load(cleanedBytes, { updateMetadata: false });
+    expect(reloaded.catalog.has(PDFName.of('Metadata'))).toBe(false);
+    expect(reloaded.catalog.has(PDFName.of('PieceInfo'))).toBe(false);
   });
 });

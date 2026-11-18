@@ -35,7 +35,7 @@ import {
   clearThumbnailCache,
   removeDocThumbnails,
 } from './core/pdf-renderer';
-import { imagesToPdf, getPDFMetadata } from './core/pdf-operations';
+import { imagesToPdf, getPDFMetadata, syncDocumentAfterTauriSave } from './core/pdf-operations';
 import { PhotoStudioModal, type PhotoStudioApplyResult } from './components/photo/PhotoStudioModal';
 
 import { compressPdf } from './core/pdf-compressor';
@@ -1175,6 +1175,32 @@ class MePdfApp {
       if (!options?.forceSaveAs && platformBridge.isTauri && singleDoc?.nativePath) {
         const success = await platformBridge.writeNativeFile(singleDoc.nativePath, mergedBytes);
         if (success) {
+          const hadRotation = this.pages.some((p) => p.rotation !== 0);
+          syncDocumentAfterTauriSave(singleDoc, this.pages, mergedBytes);
+          this.documents.set(singleDoc.id, singleDoc);
+          removeDocThumbnails(singleDoc.id);
+
+          if (hadRotation) {
+            try {
+              const pdfDoc = await loadPdfDocument(mergedBytes);
+              try {
+                for (let i = 0; i < this.pages.length; i++) {
+                  const p = this.pages[i];
+                  if (!p) continue;
+                  const { dataUrl, width, height } = await renderPageThumbnail(pdfDoc, i + 1, 0, 1600, singleDoc.id);
+                  p.thumbnailDataUrl = dataUrl;
+                  p.width = width;
+                  p.height = height;
+                }
+              } finally {
+                await destroyPdfDocument(pdfDoc);
+              }
+            } catch (err) {
+              console.warn('Failed to re-render thumbnails after save:', err);
+            }
+          }
+          this.triggerAutoSave();
+          this.updateUI();
           toast.show(
             getLanguage() === 'th'
               ? `บันทึกทับไฟล์สำเร็จ: ${singleDoc.filename}`
@@ -1552,6 +1578,56 @@ class MePdfApp {
   // ==========================================
   // TOP NAV TAB ACTIONS & ROUTING
   // ==========================================
+  private async rehydrateThumbnails(): Promise<void> {
+    const pagesNeedingThumb = this.pages.filter((p) => !p.thumbnailDataUrl);
+    if (pagesNeedingThumb.length === 0) return;
+
+    const loadedDocs = new Map<string, Awaited<ReturnType<typeof loadPdfDocument>>>();
+    try {
+      for (const page of this.pages) {
+        if (page.thumbnailDataUrl) continue;
+        const doc = this.documents.get(page.docId);
+        if (!doc || !doc.fileBytes) continue;
+
+        let pdfDoc = loadedDocs.get(page.docId);
+        if (!pdfDoc) {
+          try {
+            pdfDoc = await loadPdfDocument(doc.fileBytes, doc.password);
+            loadedDocs.set(page.docId, pdfDoc);
+          } catch (err) {
+            console.warn(`Failed to load document for thumbnail: ${page.docId}`, err);
+            continue;
+          }
+        }
+
+        try {
+          const { dataUrl, width, height } = await renderPageThumbnail(
+            pdfDoc,
+            page.pageIndex + 1,
+            0,
+            1600,
+            page.docId
+          );
+          page.thumbnailDataUrl = dataUrl;
+          if (!page.width || !page.height) {
+            page.width = width;
+            page.height = height;
+          }
+          if (page.id === this.activePageId) {
+            this.updateUI();
+          }
+        } catch (err) {
+          console.warn(`Failed to render thumbnail for page ${page.id}:`, err);
+        }
+      }
+      this.updateUI();
+    } finally {
+      for (const pdfDoc of loadedDocs.values()) {
+        await destroyPdfDocument(pdfDoc);
+      }
+    }
+  }
+
   private resetNavTabToStudio(): void {
     setHashRoute('studio');
     this.cockpitInspector?.setActiveTab('tools');
@@ -1851,6 +1927,9 @@ class MePdfApp {
         }
         this.updateUI();
         toast.show(t('toastSessionRestored'), 'info');
+
+        // Lazily re-render thumbnails for restored pages from their documents
+        void this.rehydrateThumbnails();
       }
     } catch (err) {
       console.warn('Failed to restore workspace session:', err);
