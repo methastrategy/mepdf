@@ -221,7 +221,7 @@ export class CockpitCanvas {
             <div class="workbench-header">
               <div class="workbench-badge">
                 <span class="pulse-dot"></span>
-                <span>meCraft Studio Desktop</span>
+                <span>mePDF Studio Desktop</span>
               </div>
               <h2 class="workbench-title">${lang === 'th' ? 'โต๊ะทำงานเอกสาร (Workbench)' : 'Studio Workbench'}</h2>
               <p class="workbench-subtitle">

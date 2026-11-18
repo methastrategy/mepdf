@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-  mecraft_lib::run();
+  mepdf_lib::run();
 }

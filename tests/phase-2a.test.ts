@@ -35,12 +35,12 @@ describe('Phase 2A - i18n Localization Engine', () => {
 
   it('translates basic string keys in English and Thai', () => {
     setLanguage('en');
-    expect(t('brandName')).toBe('meCraft');
+    expect(t('brandName')).toBe('mePDF');
     expect(t('tabStudio')).toBe('Visual Studio (Merge & Organize)');
     expect(t('tabSplit')).toBe('Split PDF');
 
     setLanguage('th');
-    expect(t('brandName')).toBe('meCraft');
+    expect(t('brandName')).toBe('mePDF');
     expect(t('tabStudio')).toBe('Visual Studio (รวมและจัดหน้า)');
     expect(t('tabSplit')).toBe('แยกหน้า PDF');
   });

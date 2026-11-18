@@ -238,8 +238,8 @@ export class MenuBar {
     this.container.innerHTML = `
       <div class="menubar-wrapper" role="menubar" aria-label="Main Menu">
         <!-- Brand / Studio Tag -->
-        <div class="menubar-brand" title="meCraft Studio Desktop">
-          <span class="menubar-brand-badge">meCraft</span>
+        <div class="menubar-brand" title="mePDF Studio Desktop">
+          <span class="menubar-brand-badge">mePDF</span>
           <span class="menubar-studio-tag">STUDIO</span>
         </div>
 
@@ -431,7 +431,7 @@ export class MenuBar {
               </button>
               <button class="menubar-menu-item" data-action="help-about" role="menuitem">
                 <i data-lucide="info" class="menu-icon"></i>
-                <span class="menu-label">${lang === 'th' ? 'เกี่ยวกับ meCraft Studio' : 'About meCraft Studio'}</span>
+                <span class="menu-label">${lang === 'th' ? 'เกี่ยวกับ mePDF Studio' : 'About mePDF Studio'}</span>
               </button>
             </div>
           </div>

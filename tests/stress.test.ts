@@ -174,7 +174,7 @@ describe('WBS 4.3: End-to-End Stress & Chain Pipeline Testing', () => {
 
     expect(parsed['@context']).toBe('https://schema.org');
     expect(parsed['@type']).toBe('WebApplication');
-    expect(parsed.name).toBe('meCraft');
+    expect(parsed.name).toBe('mePDF');
     expect(parsed.offers.price).toBe('0');
     expect(parsed.featureList.length).toBeGreaterThan(5);
   });

@@ -1,8 +1,8 @@
-# 🎨 meCraft Studio
+# 📄 mePDF Studio
 
-**Pure Client-Side Creative & Document Engineering Suite (100% In-Browser & Native Desktop)**
+**Pure Client-Side PDF & Document Photo Suite (100% In-Browser & Native Desktop)**
 
-A high-performance, private, zero-server-upload PDF and Photo toolbox built with **Vite, TypeScript, Tauri v2 (Rust), pdf-lib, PDF.js, and Web Workers**.
+A high-performance, private, zero-server-upload PDF and Document Photo toolbox built with **Vite, TypeScript, Tauri v2 (Rust), pdf-lib, PDF.js, and Web Workers**.
 
 ---
 

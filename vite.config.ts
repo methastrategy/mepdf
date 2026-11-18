@@ -16,9 +16,9 @@ export default defineConfig({
         'icons/*.png',
       ],
       manifest: {
-        name: 'meCraft - Pure Client-Side Creative & Document Studio',
-        short_name: 'meCraft',
-        description: '100% In-Browser & Desktop Creative Studio (PDF & Photo). Merge, split, rotate, edit photos, compress, and convert offline with zero server upload.',
+        name: 'mePDF - Pure Client-Side PDF Studio',
+        short_name: 'mePDF',
+        description: '100% In-Browser & Desktop PDF & Photo Studio. Merge, split, rotate, edit photos, compress, and convert offline with zero server upload.',
         theme_color: '#06070a',
         background_color: '#000000',
         display: 'standalone',

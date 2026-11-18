@@ -252,7 +252,7 @@ describe('Desktop Studio Architecture & Tauri Integration', () => {
 
       const menuBar = new MenuBar(container, callbacks);
       expect(container.innerHTML).toContain('menubar-wrapper');
-      expect(container.innerHTML).toContain('meCraft');
+      expect(container.innerHTML).toContain('mePDF');
       expect(container.innerHTML).toContain('STUDIO');
 
       // Test updating state to active document
@@ -439,8 +439,8 @@ describe('Desktop Studio Architecture & Tauri Integration', () => {
     });
 
     it('sets window title gracefully on web', async () => {
-      await platformBridge.setWindowTitle('Test Title — meCraft Studio');
-      expect((globalThis as any).document.title).toBe('Test Title — meCraft Studio');
+      await platformBridge.setWindowTitle('Test Title — mePDF Studio');
+      expect((globalThis as any).document.title).toBe('Test Title — mePDF Studio');
     });
 
     it('provides safe web fallbacks for native filesystem and cli methods', async () => {
@@ -503,7 +503,7 @@ describe('Desktop Studio Architecture & Tauri Integration', () => {
       canvas.setActivePage(null, 0, 0);
 
       expect(container.innerHTML).toContain('cockpit-startup-workbench');
-      expect(container.innerHTML).toContain('meCraft Studio Desktop');
+      expect(container.innerHTML).toContain('mePDF Studio Desktop');
       expect(container.innerHTML).toContain('workbench-dropzone');
 
       // Click open file button in startup workbench

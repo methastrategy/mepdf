@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "meCraft Studio",
+  "productName": "mePDF Studio",
   "version": "3.1.0",
-  "identifier": "com.mecraft.studio",
+  "identifier": "com.mepdf.studio",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "meCraft Studio",
+        "title": "mePDF Studio",
         "width": 1440,
         "height": 900,
         "minWidth": 1024,

@@ -3,7 +3,7 @@ export type Language = 'th' | 'en';
 export const translations = {
   en: {
     // Brand
-    brandName: 'meCraft',
+    brandName: 'mePDF',
     brandBadge: 'Pure Client-Side',
 
     // Navbar
@@ -258,9 +258,9 @@ export const translations = {
     toastPagesRestored: 'Restored {count} pages!',
     toastRotatedAll: 'Rotated all {count} pages (+{deg}°)',
     toastRotatedSelected: 'Rotated {count} selected pages (+{deg}°)',
-    toastAppInstalled: 'meCraft installed successfully!',
-    toastOfflineReady: 'meCraft is installed and ready for offline use!',
-    toastOfflineActive: 'Offline mode active. All meCraft tools work 100% locally!',
+    toastAppInstalled: 'mePDF installed successfully!',
+    toastOfflineReady: 'mePDF is installed and ready for offline use!',
+    toastOfflineActive: 'Offline mode active. All mePDF tools work 100% locally!',
     toastOnlineActive: 'Internet connection restored.',
     toastLanguageSwitched: 'Switched language to English',
     toastPhotoEnhanced: 'Page image enhanced successfully!',
@@ -268,8 +268,8 @@ export const translations = {
     toastPhotoSelectImage: 'Please select an image file to edit.',
 
     // Auth & Account
-    authModalTitleSignIn: 'Sign In to meCraft',
-    authModalTitleSignUp: 'Create meCraft Account',
+    authModalTitleSignIn: 'Sign In to mePDF',
+    authModalTitleSignUp: 'Create mePDF Account',
     authTabSignIn: 'Sign In',
     authTabSignUp: 'Sign Up',
     authGoogleBtn: 'Continue with Google',
@@ -298,7 +298,7 @@ export const translations = {
     authDemoNotice: 'Offline Demo Mode: Configure Supabase in .env to use live Google Accounts',
     authDemoToast: 'Signed in via Demo Mode. Configure Supabase in .env to connect live Gmail.',
     authInstantGuestBtn: 'Instant Access (1-Click Pro Studio • 100% Free)',
-    authInstantToast: 'Welcome to meCraft Studio (100% Free Pro Unlocked)!',
+    authInstantToast: 'Welcome to mePDF Studio (100% Free Pro Unlocked)!',
     authGoogleHint: 'Tip: Type your Gmail below to log in directly with your own identity',
 
     // Account Widget & Tiers
@@ -349,7 +349,7 @@ export const translations = {
   },
   th: {
     // Brand
-    brandName: 'meCraft',
+    brandName: 'mePDF',
     brandBadge: 'ประมวลผลบนเครื่อง 100%',
 
     // Navbar
@@ -604,8 +604,8 @@ export const translations = {
     toastPagesRestored: 'กู้คืน {count} หน้าแล้ว!',
     toastRotatedAll: 'หมุนเอกสารทั้งหมด {count} หน้า (+{deg}°)',
     toastRotatedSelected: 'หมุนหน้าที่เลือก {count} หน้า (+{deg}°)',
-    toastAppInstalled: 'ติดตั้ง meCraft เรียบร้อยแล้ว!',
-    toastOfflineReady: 'meCraft พร้อมใช้งานแบบออฟไลน์ 100% แล้ว!',
+    toastAppInstalled: 'ติดตั้ง mePDF เรียบร้อยแล้ว!',
+    toastOfflineReady: 'mePDF พร้อมใช้งานแบบออฟไลน์ 100% แล้ว!',
     toastOfflineActive: 'เข้าสู่โหมดออฟไลน์ ทุกฟังก์ชันทำงานบนเครื่อง 100%!',
     toastOnlineActive: 'เชื่อมต่ออินเทอร์เน็ตแล้ว',
     toastLanguageSwitched: 'เปลี่ยนภาษาเป็นภาษาไทยแล้ว',
@@ -614,8 +614,8 @@ export const translations = {
     toastPhotoSelectImage: 'กรุณาเลือกไฟล์รูปภาพเพื่อปรับแต่ง',
 
     // Auth & Account
-    authModalTitleSignIn: 'เข้าสู่ระบบ meCraft',
-    authModalTitleSignUp: 'สร้างบัญชี meCraft',
+    authModalTitleSignIn: 'เข้าสู่ระบบ mePDF',
+    authModalTitleSignUp: 'สร้างบัญชี mePDF',
     authTabSignIn: 'เข้าสู่ระบบ',
     authTabSignUp: 'สมัครสมาชิก',
     authGoogleBtn: 'เข้าสู่ระบบด้วย Google',
@@ -644,7 +644,7 @@ export const translations = {
     authDemoNotice: 'โหมดจำลองออฟไลน์: ตั้งค่า Supabase ใน .env เพื่อเข้าใช้งานด้วย Gmail จริง',
     authDemoToast: 'เข้าสู่ระบบในโหมดจำลองสำเร็จ (ตั้งค่า Supabase ใน .env เพื่อเข้าใช้งานด้วย Gmail จริง)',
     authInstantGuestBtn: 'เข้าใช้งานทันที (1-Click Pro Studio • ฟรี 100%)',
-    authInstantToast: 'ยินดีต้อนรับสู่ meCraft Studio (ปลดล็อก Pro ฟรี 100%)!',
+    authInstantToast: 'ยินดีต้อนรับสู่ mePDF Studio (ปลดล็อก Pro ฟรี 100%)!',
     authGoogleHint: 'พิมพ์ Gmail หรือ Email ของคุณด้านล่าง แล้วกดปุ่มนี้เพื่อเข้าใช้งานด้วยชื่อบัญชีของคุณได้ทันที',
 
     // Account Widget & Tiers

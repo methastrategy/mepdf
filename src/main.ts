@@ -69,7 +69,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   };
 }
 
-class MeCraftApp {
+class MePdfApp {
   private appEl: HTMLElement;
   private documents = new Map<string, DocumentMetadata>();
   private pages: PDFPageItem[] = [];
@@ -145,7 +145,7 @@ class MeCraftApp {
       <header class="command-ribbon navbar">
         <div class="ribbon-brand-section">
           <div class="ribbon-logo">
-            <span>meCraft</span>
+            <span>mePDF</span>
           </div>
           <span class="ribbon-doc-info" id="ribbon-doc-info" style="display: none;"></span>
         </div>
@@ -916,9 +916,9 @@ class MeCraftApp {
     if (hasPages) {
       const distinctNames = Array.from(new Set(this.pages.map((p) => p.docName)));
       const primaryDoc = distinctNames.length === 1 ? distinctNames[0] : `${distinctNames.length} Documents`;
-      void platformBridge.setWindowTitle(`${primaryDoc} — meCraft Studio`);
+      void platformBridge.setWindowTitle(`${primaryDoc} — mePDF Studio`);
     } else {
-      void platformBridge.setWindowTitle('meCraft Studio');
+      void platformBridge.setWindowTitle('mePDF Studio');
     }
 
     this.triggerAutoSave();
@@ -1157,7 +1157,7 @@ class MeCraftApp {
       });
       progressOverlay.hide();
 
-      let exportFilename = 'mecraft_merged.pdf';
+      let exportFilename = 'mepdf_merged.pdf';
       const distinctDocIds = new Set(this.pages.map((p) => p.docId));
       let singleDoc: DocumentMetadata | null = null;
       if (distinctDocIds.size === 1) {
@@ -1266,13 +1266,13 @@ class MeCraftApp {
           me
         </div>
         <div>
-          <h4 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem;">meCraft Studio</h4>
+          <h4 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem;">mePDF Studio</h4>
           <p style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
             Version 3.1.0 (${isTauri ? 'Native Windows Desktop' : 'Web PWA'})
           </p>
         </div>
         <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; max-width: 420px;">
-          100% In-Browser & Native Desktop Creative Suite (PDF & Photo).<br/>
+          100% In-Browser & Native Desktop Document Suite (PDF & Photo).<br/>
           Zero server uploads, CamScanner Magic Color, non-destructive cropping, and hardware-accelerated rendering.
         </p>
         <div style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; background: rgba(16, 185, 129, 0.1); color: var(--success); font-size: 0.75rem;">
@@ -1286,7 +1286,7 @@ class MeCraftApp {
       <button class="btn btn-primary" id="modal-about-close">Close</button>
     `;
 
-    modal.open('ℹ️ About meCraft Studio', bodyHtml, footerHtml);
+    modal.open('ℹ️ About mePDF Studio', bodyHtml, footerHtml);
     document.querySelector('#modal-about-close')?.addEventListener('click', () => modal.close());
   }
 
@@ -1296,7 +1296,7 @@ class MeCraftApp {
       this.resetNavTabToStudio();
       return;
     }
-    let baseFilename = 'mecraft';
+    let baseFilename = 'mepdf';
     const distinctDocIds = new Set(this.pages.map((p) => p.docId));
     if (distinctDocIds.size === 1) {
       const docId = distinctDocIds.values().next().value;
@@ -1493,7 +1493,7 @@ class MeCraftApp {
           subject: '',
           keywords: '',
           creator: '',
-          producer: 'meCraft Studio Pure Client-Side',
+          producer: 'mePDF Studio Pure Client-Side',
         },
         true
       );
@@ -1545,7 +1545,7 @@ class MeCraftApp {
     });
     progressOverlay.hide();
 
-    const baseName = isSingleDoc ? firstDoc.filename : 'mecraft_workspace.pdf';
+    const baseName = isSingleDoc ? firstDoc.filename : 'mepdf_workspace.pdf';
     return { docBytes: mergedBytes, docName: baseName, password: isSingleDoc ? firstDoc.password : undefined };
   }
 
@@ -1943,7 +1943,7 @@ class MeCraftApp {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  new MeCraftApp();
+  new MePdfApp();
 });
 
 if ('serviceWorker' in navigator) {
@@ -1953,7 +1953,7 @@ if ('serviceWorker' in navigator) {
       toast.show('New version available. Reload to update.', 'info');
     },
     onOfflineReady() {
-      toast.show('meCraft is ready for offline use!', 'success');
+      toast.show('mePDF is ready for offline use!', 'success');
     },
   });
 }
